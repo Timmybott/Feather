@@ -6,6 +6,22 @@ All notable changes to Feather are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.6.4] — 2026-07-24
+
+A bug-fix release.
+
+### Fixed
+
+- **Viewing a commit's file diff no longer fails with a panel 500.** The "before"
+  side of a modified file is read from the server, but Feather passed the bare
+  project-relative path (e.g. `src/main.js`) — with no leading slash and without
+  the project's deploy **target directory**, under which the file actually lives
+  on the server. Wings couldn't resolve that path and surfaced it as a
+  `DaemonConnectionException` (HTTP 500), so the diff wouldn't open. Feather now
+  builds the correct absolute server path for all three diff readers
+  (changes-since-deploy, uncommitted, and per-commit), and falls back to showing
+  just the new version if the server still can't return the file.
+
 ## [2.6.3] — 2026-07-23
 
 Better commit/deploy forms and genuinely automatic team sync.
@@ -544,6 +560,7 @@ First feature-complete version — everything from the v1 specification.
 - **Easy install** — Windows NSIS installer and a one-line Linux installer
   (`install.sh`, .deb on apt-based distros, AppImage elsewhere).
 
+[2.6.4]: https://github.com/Timmybott/Feather/releases/tag/v2.6.4
 [2.6.3]: https://github.com/Timmybott/Feather/releases/tag/v2.6.3
 [2.6.2]: https://github.com/Timmybott/Feather/releases/tag/v2.6.2
 [2.6.1]: https://github.com/Timmybott/Feather/releases/tag/v2.6.1
