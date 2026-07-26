@@ -19,7 +19,7 @@
 // by the runtime: SUPABASE_URL, SUPABASE_ANON_KEY.
 // Optional: STORAGE_SERVER_ID (default 893a2ffd) — refused as a target.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const RESERVED_SERVER_ID = Deno.env.get("STORAGE_SERVER_ID") ?? "893a2ffd";
 

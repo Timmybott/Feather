@@ -28,7 +28,7 @@
 // Provided automatically by the Supabase runtime:
 //   SUPABASE_URL, SUPABASE_ANON_KEY
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const PANEL_URL = (Deno.env.get("STORAGE_PANEL_URL") ?? "https://panel.spaceify.eu/").replace(
   /\/?$/,
