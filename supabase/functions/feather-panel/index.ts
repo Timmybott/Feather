@@ -25,7 +25,10 @@ const RESERVED_SERVER_ID = Deno.env.get("STORAGE_SERVER_ID") ?? "893a2ffd";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type",
+  // `apikey` and `x-client-info` are sent by the browser Supabase client, so
+  // they MUST be allowed here or the CORS preflight fails and the browser
+  // reports "TypeError: Failed to fetch" before the request is even made.
+  "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 

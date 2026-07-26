@@ -15,6 +15,7 @@
   import IssuesPanel from "../../src/lib/components/IssuesPanel.svelte";
   import Markdown from "../../src/lib/components/Markdown.svelte";
   import ProjectHistory from "../../src/lib/components/ProjectHistory.svelte";
+  import { openInDesktop } from "../lib/desktop";
   import { navigate } from "../lib/router.svelte";
   import WebConsole from "./WebConsole.svelte";
 
@@ -91,17 +92,25 @@
           {/if}
         </div>
       </div>
+      <button
+        class="desktop-btn"
+        onclick={() => openInDesktop(`project/${project!.id}`)}
+        title="Open this project in the Feather desktop app to commit and deploy"
+      >
+        Open in desktop app ↗
+      </button>
     </header>
 
     <nav class="subtabs">
       <button class:active={tab === "overview"} onclick={() => (tab = "overview")}>Overview</button>
       <button class:active={tab === "issues"} onclick={() => (tab = "issues")}>Issues</button>
-      {#if hasServer}
+      <button class:active={tab === "history"} onclick={() => (tab = "history")}>History</button>
+      <!-- Files and the live console reach the team's panel, which is
+           members-only — the feather-panel proxy rejects non-members. Only
+           show these tabs to a signed-in member of the owning team. -->
+      {#if hasServer && isMember}
         <button class:active={tab === "files"} onclick={() => (tab = "files")}>Files</button>
-        <button class:active={tab === "history"} onclick={() => (tab = "history")}>History</button>
         <button class:active={tab === "console"} onclick={() => (tab = "console")}>Console</button>
-      {:else}
-        <button class:active={tab === "history"} onclick={() => (tab = "history")}>History</button>
       {/if}
     </nav>
 
@@ -124,9 +133,9 @@
       {/if}
     {:else if tab === "issues"}
       <IssuesPanel projectId={project.id} canWrite={false} canInteract={isMember} onOpenProfile={(id) => navigate(`/u/${id}`)} />
-    {:else if tab === "files" && hasServer}
+    {:else if tab === "files" && hasServer && isMember}
       <FileBrowser panelId={project.panel_id!} identifier={project.server_identifier!} canWrite={isMember} />
-    {:else if tab === "console" && hasServer}
+    {:else if tab === "console" && hasServer && isMember}
       <WebConsole panelId={project.panel_id!} identifier={project.server_identifier!} serverName={project.name} onClose={() => (tab = "overview")} />
     {:else if tab === "history"}
       <ProjectHistory {project} onRollback={noop} onClose={() => (tab = "overview")} canWrite={false} />
@@ -145,6 +154,23 @@
     align-items: center;
     gap: 14px;
     margin-bottom: 14px;
+  }
+
+  .desktop-btn {
+    margin-left: auto;
+    flex-shrink: 0;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 13px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .desktop-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
   }
 
   .proj-logo {

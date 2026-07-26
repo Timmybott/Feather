@@ -1,6 +1,6 @@
 # Projektspezifikation: Feather — Desktop-Client für Pterodactyl
 
-> Stand: 26. Juli 2026 · Version 0.5 (Abschnitt 10 = Cloud- & Team-Kollaboration v2.1; Abschnitt 10.6 = Panels/Projects-Rework v2.2; Abschnitt 10.7 = Cloud-Commits, Profile & Issue-Verknüpfung v2.3; Abschnitt 10.8 = Projekt-Experience: Diffs, Interaktivität & Aufräumen v2.4; Abschnitt 10.9 = Delta-Commits, Bündel-Deploy, Auto-Sync & Deploy-Rollback v2.5; Abschnitt 10.10 = Workflow & Politur: Commit-Details, Vollbild-Views, Navigations-Stack, Bild-Upload, Statistiken v2.6; **Abschnitt 11 = Feather im Web: Webapp, Homepage, Suche & Panel-Proxy v3.0/v3.1**; die Abschnitte 1–9 beschreiben den lokalen v1-Kern)
+> Stand: 26. Juli 2026 · Version 0.5 (Abschnitt 10 = Cloud- & Team-Kollaboration v2.1; Abschnitt 10.6 = Panels/Projects-Rework v2.2; Abschnitt 10.7 = Cloud-Commits, Profile & Issue-Verknüpfung v2.3; Abschnitt 10.8 = Projekt-Experience: Diffs, Interaktivität & Aufräumen v2.4; Abschnitt 10.9 = Delta-Commits, Bündel-Deploy, Auto-Sync & Deploy-Rollback v2.5; Abschnitt 10.10 = Workflow & Politur: Commit-Details, Vollbild-Views, Navigations-Stack, Bild-Upload, Statistiken v2.6; **Abschnitt 11 = Feather im Web: Webapp, Homepage, Suche & Panel-Proxy v3.0–v3.2**; die Abschnitte 1–9 beschreiben den lokalen v1-Kern)
 
 ---
 
@@ -437,4 +437,12 @@ Der Web-Build (`npm run web:build`) und `npm run web:check` laufen zusätzlich z
 **Web-Deploy-Fix (v3.1, M54).**
 - Der `deploy-web`-Job brach bei jedem Release mit `TypeError: res.text is not a function` ab. `scripts/deploy-web.mjs` reichte der `must()`-Hilfe das **nicht-awaitete** `fetch()`/Panel-Request-**Promise** statt der aufgelösten `Response`, sodass `.ok`/`.text()` auf einem Promise landeten. `must()` **awaited jetzt sein Argument** (Response *oder* Promise\<Response\>) und deckt damit alle vier Upload/Delete/Decompress-Aufrufe ab. Reiner CI-Skript-Fix; App- und Web-Bundles unverändert.
 
-**Neue Meilensteine (v3.0):** M50 (`feather-panel` Edge Function) · M51 (`supabase/0019` öffentliches anon-Lesen) · M52 (Web-SPA: Homepage, Suche, Ansichts-Seiten, Konsole) · M53 (CI-Webroot-Deploy, Version 3.0.0 + Docs) · M54 (Web-Deploy-Fix · 3.1.0) — abgeschlossen.
+**Web-Fixes & lebendige Homepage (v3.2, M55).**
+- **CORS-Fix (Files/Diffs/Konsole „Failed to fetch"):** `feather-panel` und `feather-storage` erlaubten in `Access-Control-Allow-Headers` nur `authorization, content-type`. Der Browser-Supabase-Client sendet aber zusätzlich `apikey` (und `x-client-info`), sodass der **CORS-Preflight** scheiterte und `fetch` gar nicht erst rausging. Beide Funktionen erlauben die Header nun → **beide Edge Functions müssen neu deployt werden**. (Warum REST trotzdem lief: Supabases eigener REST-Gateway erlaubt `apikey` bereits.)
+- **Profilbilder:** Hochgeladene Bilder (Supabase Storage) luden immer; „nicht ladende" Bilder waren **externe, ablaufende URLs** (z. B. ein Discord-CDN-Link, der nach ~1 Tag 404t). Empfehlung: Bild hochladen statt Fremd-URL. Der Web-Header-Avatar fällt bei Ladefehler auf die Initialen zurück.
+- **Files/Konsole nur für Mitglieder:** Beide gehen über das mitglieder-only Panel; die Tabs erscheinen jetzt nur für eingeloggte Mitglieder des Projekt-Teams (serverseitig war es schon abgesichert, die Tabs waren nur irreführend sichtbar). Overview/Issues/History bleiben öffentlich.
+- **Lebendige Homepage (`web/lib/github.ts`):** liest die öffentliche GitHub-API (immer aktuell, ohne Rebuild): OS-erkennender Download (passendes Installer-Asset des neuesten Releases), „What's new"-Changelog (letzte Releases, Markdown), Stats (Stars/Forks/Version) und Contributor-Avatare.
+- **Account-Menü im Web-Header:** Avatar (Initialen-Fallback) mit „Your profile", „Your teams"-Liste und „Log out" statt nur „Your profile".
+- **„Open in desktop app":** Projektseite bietet einen `feather://`-Deep-Link für Committen/Deployen (was das Web nicht kann).
+
+**Neue Meilensteine (v3.0):** M50 (`feather-panel` Edge Function) · M51 (`supabase/0019` öffentliches anon-Lesen) · M52 (Web-SPA: Homepage, Suche, Ansichts-Seiten, Konsole) · M53 (CI-Webroot-Deploy, Version 3.0.0 + Docs) · M54 (Web-Deploy-Fix · 3.1.0) · M55 (Web-CORS-Fix, Mitglieder-Gating, lebendige Homepage, Account-Menü · 3.2.0) — abgeschlossen.
