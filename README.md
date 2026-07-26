@@ -2,9 +2,9 @@
 
 **A cloud-backed, team-collaborative desktop client for [Pterodactyl](https://pterodactyl.io) — think GitHub Desktop crossed with GitHub itself, but for your game servers, bots and self-hosted services.**
 
-Feather splits cleanly in two: **Panels** is where you run your servers (power, live stats, console across every panel your team uses), and **Projects** is where you plan, track and deploy them. Each project imports a server and gets a GitHub-style page — a Markdown README, an issue tracker, and a **cloud-commit deploy flow**: you work in a local folder, see a live diff against the server, **commit** the changes into a shared **Deploy** that everyone's work bundles into, ship it in one click, and browse a full **Deploys/Commits history** with diffs and one-click **rollback** to any past deploy. Everything is shared through a free cloud backend, so a whole team works from the same picture. The name plays on Pterodactyl's flight theme — its daemon is called [Wings](https://github.com/pterodactyl/wings).
+Feather splits cleanly in two: **Panels** is where you run your servers (power, live stats, console across every panel your team uses), and **Projects** is where you plan, track and deploy them. Each project imports a server and gets a GitHub-style page — a Markdown README, an issue tracker, and a **cloud-commit deploy flow**: you work in a local folder, see a live diff against the server, **commit** the changes into a shared **Deploy** that everyone's work bundles into, ship it in one click, and browse a full **Deploys/Commits history** with diffs and one-click **rollback** to any past deploy. Everything is shared through a free cloud backend, so a whole team works from the same picture. There's also a **[web version](#feather-on-the-web)** — the same app in the browser, for browsing, searching and light editing. The name plays on Pterodactyl's flight theme — its daemon is called [Wings](https://github.com/pterodactyl/wings).
 
-> **Status:** v2.6 — a workflow & polish release. Commits now carry a **name and description**, a commit's file diffs are viewable inside the current Deploy, and the newest commit can be removed again. The server console, project history, file editor and diffs are **full pages** with a **real Back button** that returns to the page you actually came from. Avatars and logos are **uploaded from a file** (not a URL), teams are created through a short **wizard**, members can be added by **email _or_ username**, and **team and user pages show statistics**. It builds on v2.5's delta deploy model — a **commit** records only its *delta* and a **deploy** ships exactly the accumulated commits and nothing else (uncommitted edits never ship, teammates **auto-sync**, and **rollback** restores a past deploy from a full snapshot) — and v2.4's project experience (per-file line diffs, edit-on-server, profiles/team cross-links, project logos). Commit deltas and deploy snapshots live on a dedicated storage backend reached only through a key-holding Edge Function.
+> **Status:** v3.0 — **Feather on the web.** A browser version of Feather that looks and behaves exactly like the desktop app (it reuses the same components) but is view-focused: browse and **search** teams, users and projects, read Overviews, issues and full history, edit files and issues online, and watch the live console — no committing, deploying or local folders (those stay on the desktop). It comes with a **homepage**, **GitHub-style search**, public browsing **without an account**, and it **auto-deploys to the server web root on every release**. **The installable desktop app is unchanged.** It builds on v2.6's workflow & polish (named commits with per-commit diffs, full-page views with a real Back button, file-uploaded avatars/logos, a team-creation wizard, statistics), v2.5's delta deploy model (a **commit** records only its *delta*, a **deploy** ships exactly the accumulated commits, teammates **auto-sync**, **rollback** restores a past deploy) and v2.4's project experience (per-file line diffs, edit-on-server, profile/team cross-links). Commit deltas and deploy snapshots live on a dedicated storage backend reached only through a key-holding Edge Function.
 
 ---
 
@@ -34,6 +34,7 @@ Feather splits cleanly in two: **Panels** is where you run your servers (power, 
   - [Deleting a project](#deleting-a-project)
   - [Multi-device sync](#multi-device-sync)
   - [Auto-updates](#auto-updates)
+- [Feather on the web](#feather-on-the-web)
 - [The storage backend](#the-storage-backend)
 - [Security & privacy](#security--privacy)
 - [Development](#development)
@@ -101,6 +102,8 @@ At a glance:
 ```
 
 The **cloud never sees your plaintext API keys**, and Supabase stores only shared *metadata* — never your project files. Panel keys are decrypted for you (a team member) and handed to the Rust core **in memory only**. Which local folder a project deploys from is a **per-device binding** (each teammate picks their own, or none). Commit **deltas** and deploy **snapshots** (the only *project* file bytes Feather stores) go to a dedicated **storage backend** reached exclusively through the **`feather-storage`** Edge Function, which is the sole holder of that server's key — see [The storage backend](#the-storage-backend). The one exception is small profile images: avatars and logos upload to a public **`images`** Supabase Storage bucket.
+
+The **[web app](#feather-on-the-web)** runs the same picture in a browser. Since a browser can't hold a panel key or call panels directly, its file and console operations go through a second Edge Function, **`feather-panel`**, which authorizes the caller and forwards one panel request server-side. Everything else the web app reads (teams, projects, issues, history) comes straight from Supabase under Row-Level Security, just like the desktop app.
 
 ---
 
@@ -301,6 +304,26 @@ Feather ships with a built-in updater fed by GitHub releases. When a new version
 
 ---
 
+## Feather on the web
+
+Feather also runs as a **web app** — the same Feather, in the browser, meant for browsing and light editing rather than shipping. It **reuses the desktop app's Svelte components unchanged**, so every page looks and behaves exactly like the app: profiles, team pages, the project Overview, Issues, Files, History and the live Console are all identical. The installable app is completely unaffected by it.
+
+**What the web version does:**
+
+- A **homepage** — a Feather landing page with a search box, a link to download the desktop app, and feature highlights.
+- **GitHub-style search** — search **projects**, **teams** and **users** from the header or the homepage and click straight through to their pages.
+- **Browse everything, publicly** — open any public team, user or project and read its Overview, Issues, Files and full Deploys/Commits history **without an account**, exactly as they look in the app.
+- **Live console** — watch a project's server console stream in the browser (for signed-in team members).
+- **Light editing** — signed in, you can **open and create issues**, **comment**, and **edit files** on the server, just like in the app.
+
+**What stays desktop-only** — everything that is inherently local: **committing**, **deploying**, **rollback**, **importing from server**, and **linking a local folder**. The web app has no local folder, so it never commits or deploys; it's the read/plan/browse half of Feather, on the web.
+
+**How access works:** reading is open to everyone (see [migration `0019`](#database-migrations)). Writing (issues, comments, file edits) needs a signed-in account, and reaching a server's **files or console** additionally needs **team membership** — those go through the [`feather-panel`](supabase/functions/feather-panel/README.md) Edge Function, which authorizes the caller and keeps the panel key server-side, never exposing it to the browser.
+
+**Where it runs:** the web app is built (`npm run web:build`) and, on every release, uploaded to the storage server's **`/webroot`** (the Nginx web root) automatically — the rollback and commit snapshots that live alongside it in **`/data`** are never touched. See [Development](#development) to run it locally and [docs/RELEASING.md](docs/RELEASING.md) for the deploy step.
+
+---
+
 ## The storage backend
 
 Commit **deltas** and per-deploy **snapshots** are the only file bytes Feather stores in the cloud, and they do **not** go to Supabase Storage. Instead they live on a dedicated **Pterodactyl server**, reached exclusively through the **`feather-storage`** Supabase Edge Function:
@@ -317,8 +340,9 @@ See [`supabase/functions/feather-storage/README.md`](supabase/functions/feather-
 
 - **API keys are encrypted at rest** in the cloud (a master key in Supabase Vault) and only ever decrypted for verified team members through database functions that check membership first.
 - **The storage server's key is never in the app.** It lives only in the `feather-storage` Edge Function; the app talks to the function, which authorizes each request and builds every path server-side. The storage server is excluded from all normal Feather server operations.
+- **The web app never holds a panel key either.** Its file and console operations go through the `feather-panel` Edge Function, which authenticates the caller, checks team membership (Row-Level Security + the `panel_api_key` RPC) and uses the decrypted key only server-side — so the browser can browse public data freely but can only touch a server's files/console as a signed-in member.
 - **Keys are never written to local disk.** On your device the decrypted panel keys live in memory only, for the session.
-- **Row-Level Security** is enabled on every table. **Reads** of teams, members, projects and their content (deploys, commits, issues) are open to any signed-in user — Feather is GitHub-like and its projects are open source — while **writes** are restricted to the right team/role. Panels are the exception: their rows (holding the encrypted API key) stay members-only. Sensitive actions (creating teams, encrypting/decrypting keys, inviting members, changing roles, recording commits/deploys, opening issues, deleting projects) go through `SECURITY DEFINER` database functions that re-check permissions and stamp the acting user server-side, so the client can't forge them.
+- **Row-Level Security** is enabled on every table. **Reads** of teams, members, projects and their content (deploys, commits, issues) are open to **anyone**, signed in or not — Feather is GitHub-like and its projects are open source, and the public web app relies on this (migration `0019`) — while **writes** are restricted to the right team/role. Panels are the exception: their rows (holding the encrypted API key) stay members-only. Sensitive actions (creating teams, encrypting/decrypting keys, inviting members, changing roles, recording commits/deploys, opening issues, deleting projects) go through `SECURITY DEFINER` database functions that re-check permissions and stamp the acting user server-side, so the client can't forge them.
 - **Supabase never receives your project files** — only metadata (and small profile images in the public `images` bucket). A deploy applies commit deltas from the storage backend and talks to your panel directly; commit deltas and deploy snapshots go to the storage backend through the function.
 - **The anon/public key and Project URL** shipped in the app are safe to embed by design; the database enforces access, not secrecy of those values. The service-role key and database password must never go into the app.
 
@@ -340,6 +364,18 @@ cargo run -p mock-panel
 # → panel URL http://127.0.0.1:8899, API key printed on startup
 ```
 
+### The web app
+
+The [web version](#feather-on-the-web) lives in `web/` and reuses the desktop components:
+
+```sh
+npm run web:dev      # dev server for the web app
+npm run web:build    # build to web/dist (what gets deployed to /webroot)
+npm run web:check    # svelte-check for the web app
+```
+
+It talks to the same Supabase project, plus the `feather-panel` Edge Function for file/console access. On a tagged release the CI builds `web/dist` and uploads it to the storage server's `/webroot` (see [docs/RELEASING.md](docs/RELEASING.md)).
+
 ### Repository layout
 
 | Path | Contents |
@@ -348,8 +384,11 @@ cargo run -p mock-panel
 | `crates/mock-panel` | A mock of the Pterodactyl client API for tests and local development |
 | `src-tauri` | Tauri 2 shell: window, IPC commands, multiple in-memory panel connections, per-device project-folder bindings |
 | `src` | Svelte 5 + TypeScript frontend (UI, Supabase client, cloud helpers, Markdown renderer, manifest diff) |
-| `supabase/` | SQL migrations (`0001`–`0018`) — schema, Row-Level Security, functions and the `images` storage bucket |
+| `web/` | The [web app](#feather-on-the-web) — a Vite SPA that reuses `src`'s components, with its own homepage, search, router and a browser-side panel client (`vite.web.config.ts` builds it) |
+| `scripts/deploy-web.mjs` | Uploads the built web app to the server's `/webroot` on release |
+| `supabase/` | SQL migrations (`0001`–`0019`) — schema, Row-Level Security, functions and the `images` storage bucket |
 | `supabase/functions/feather-storage` | The Edge Function that fronts the storage backend (holds the key) |
+| `supabase/functions/feather-panel` | The Edge Function the web app uses to reach panels (browser-safe proxy) |
 | `docs/CLOUD-SETUP.md` | Step-by-step cloud backend setup |
 | `docs/RELEASING.md` | Release & updater-signing process |
 | `docs/SPEC.md` | Product specification (German) |
@@ -378,14 +417,16 @@ The cloud schema is a set of ordered SQL files in [`supabase/`](supabase/), appl
 | `0016_commit_details.sql` | Commit **description** column; `delete_commit` (remove the newest commit of a pending Deploy) |
 | `0017_public_read.sql` | Signed-in users can **read** teams, members, projects and their content (profiles show the full picture); writes and panels stay restricted |
 | `0018_deploy_details.sql` | Optional **`description`** on a Deploy; `release_bundle` accepts a name + description |
+| `0019_public_anon_read.sql` | Opens those reads to **anonymous** visitors too, for the public web app; writes and panels stay restricted |
 
-All are idempotent — safe to re-run. Cloud commits also need the [`feather-storage`](supabase/functions/feather-storage/README.md) function deployed.
+All are idempotent — safe to re-run. Cloud commits also need the [`feather-storage`](supabase/functions/feather-storage/README.md) function deployed; the [web app](#feather-on-the-web) additionally needs the [`feather-panel`](supabase/functions/feather-panel/README.md) function deployed.
 
 ### Tests
 
 ```sh
 cargo test        # core + mock panel (integration tests run against the mock)
-npm run check     # svelte-check (types)
+npm run check     # svelte-check (types) — desktop app
+npm run web:check # svelte-check (types) — web app
 npm test          # vitest (formatting, Markdown renderer incl. XSS cases, manifest diff)
 ```
 

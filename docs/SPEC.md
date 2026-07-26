@@ -1,6 +1,6 @@
 # Projektspezifikation: Feather — Desktop-Client für Pterodactyl
 
-> Stand: 23. Juli 2026 · Version 0.5 (Abschnitt 10 = Cloud- & Team-Kollaboration v2.1; Abschnitt 10.6 = Panels/Projects-Rework v2.2; Abschnitt 10.7 = Cloud-Commits, Profile & Issue-Verknüpfung v2.3; Abschnitt 10.8 = Projekt-Experience: Diffs, Interaktivität & Aufräumen v2.4; Abschnitt 10.9 = Delta-Commits, Bündel-Deploy, Auto-Sync & Deploy-Rollback v2.5; **Abschnitt 10.10 = Workflow & Politur: Commit-Details, Vollbild-Views, Navigations-Stack, Bild-Upload, Statistiken v2.6**; die Abschnitte 1–9 beschreiben den lokalen v1-Kern)
+> Stand: 26. Juli 2026 · Version 0.5 (Abschnitt 10 = Cloud- & Team-Kollaboration v2.1; Abschnitt 10.6 = Panels/Projects-Rework v2.2; Abschnitt 10.7 = Cloud-Commits, Profile & Issue-Verknüpfung v2.3; Abschnitt 10.8 = Projekt-Experience: Diffs, Interaktivität & Aufräumen v2.4; Abschnitt 10.9 = Delta-Commits, Bündel-Deploy, Auto-Sync & Deploy-Rollback v2.5; Abschnitt 10.10 = Workflow & Politur: Commit-Details, Vollbild-Views, Navigations-Stack, Bild-Upload, Statistiken v2.6; **Abschnitt 11 = Feather im Web: Webapp, Homepage, Suche & Panel-Proxy v3.0**; die Abschnitte 1–9 beschreiben den lokalen v1-Kern)
 
 ---
 
@@ -393,3 +393,45 @@ v2.6 politur­t die Oberfläche und den Arbeitsfluss: reichhaltigere Commits, ec
 - Der „Vorher"-Teil eines Commit-Datei-Diffs (der aktuell deployte Stand) wurde mit dem **rohen projekt-relativen Pfad** vom Server gelesen — ohne führenden Slash und ohne das Deploy-Zielverzeichnis (`target_dir`), unter dem die Datei auf dem Server liegt. Wings konnte den Pfad nicht auflösen und meldete `DaemonConnectionException` (HTTP 500), der Diff brach ab. `CloudCommits.serverPath` baut jetzt den korrekten absoluten Pfad (`/<target_dir>/<pfad>`) für alle drei Diff-Leser; `deployedFile` degradiert auf „nur neue Version", falls der Server die Datei trotzdem nicht liefert. Reiner Frontend-Fix, kein Schema.
 
 **Neue Meilensteine (v2.6-Patches):** M45 (Read-only Fremd-Projekte · 2.6.1) · M46 (Öffentliches Lesen · 2.6.2) · M47 (Commit-/Deploy-Felder + Auto-Sync · 2.6.3) · M48 (Commit-Diff Server-Pfad-Fix · 2.6.4) — abgeschlossen.
+
+## 11. Feather im Web: Webapp, Homepage, Suche & Panel-Proxy (v3.0)
+
+v3.0 bringt eine **Webversion** von Feather — dieselbe App im Browser, aber **betrachtungs-orientiert**: Projekte durchstöbern, suchen, Code online ändern, Issues ansehen/erstellen, Live-Konsole zuschauen. Was lokal ist (Committen, Deployen, Rollback, Ordner verknüpfen), bleibt der Desktop-App vorbehalten. **An der Installations-App wird nichts geändert** — die Webapp verwendet deren Svelte-Komponenten unverändert. Dazu eine **Homepage** und eine **GitHub-artige Suche**, und die Seite wird bei **jedem Release automatisch in den Webroot des Storage-Servers** geladen.
+
+### 11.1 Grundsatzentscheidungen (v3.0)
+
+| Thema | Entscheidung | Begründung |
+|---|---|---|
+| Wiederverwendung | Die Webapp **importiert die `src`-Komponenten direkt** | Garantiert identisches Aussehen/Verhalten; die Desktop-App bleibt unberührt |
+| API-Umleitung | Ein Vite-Plugin (`vite.web.config.ts`) leitet `src/lib/api.ts` → `web/lib/api.web.ts` um (nur im Web-Build) | Die Komponenten rufen im Browser statt des Tauri-Cores eine Web-Implementierung; die App-Bundles ändern sich nicht |
+| Panel-Zugriff | **Neue Edge Function `feather-panel`** als Browser→Panel-Proxy | Browser darf keinen Panel-Key halten und Panels nicht direkt cross-origin aufrufen |
+| Zugang | **Öffentlich, auch ohne Konto** (Lesen); Schreiben + Server-Dateien/Konsole erfordern Login/Mitgliedschaft | GitHub-artig, Open Source; Panels bleiben Mitglieder-only |
+| Auto-Deploy | Bei **jedem GitHub-Release** in `/home/container/webroot/` | Website aktualisiert sich mit der App; die Rollbacks in `/data` bleiben unberührt |
+
+### 11.2 Aufbau
+
+- **`web/`** — eigenständige Vite-SPA. `main.ts` mountet `App.svelte`, das über einen Hash-Router (`web/lib/router.svelte.ts`, Routen `/`, `/search`, `/login`, `/u/:id`, `/t/:id`, `/p/:id`) zwischen **Home**, **SearchPage**, **AuthScreen**, **UserProfile**, **TeamProfile** und **WebProject** wechselt. `UserProfile`/`TeamProfile` sind die **unveränderten** Desktop-Komponenten.
+- **`web/lib/api.web.ts`** — Web-Ersatz für `src/lib/api.ts`: Datei-Listing/-Lesen/-Schreiben/Ordner/Löschen laufen über den `feather-panel`-Proxy; `snapshotFile` holt Commit-Zips über `feather-storage` (`get`) und entpackt sie im Browser mit **fflate**; `readLocalFile` wirft (kein lokaler Ordner im Web).
+- **`web/lib/panel.ts`** — kleiner Client für den `feather-panel`-Endpunkt (Session-Token oder anon).
+- **`web/lib/search.ts`** — `searchTeams`/`searchProjects`/`searchUsers` per Supabase-`ilike`.
+- **`web/components/`** — `WebHeader` (Logo/Suche/Login), `Home` (Landing), `SearchPage` (Tabs Projekte/Teams/User), `WebProject` (Projektseite mit Tabs Overview/Issues/Files/History/Console; `isMember` steuert Schreib-/Interaktionsrechte), `WebConsole` (Browser-Websocket zum Wings-Daemon, speist die wiederverwendete `ConsoleView`).
+
+Nur sechs API-Funktionen brauchten einen Web-Shim (Datei-Zugriff in `FileBrowser`/`FileEditor` und `snapshotFile`); reine Cloud-Komponenten (Profile, Issues, Overview, History) laufen ohne jede Anpassung.
+
+### 11.3 `feather-panel` Edge Function
+
+Authentifiziert den Aufrufer per Supabase-JWT, liest die `panels`-Zeile unter RLS (nur für Team-Mitglieder), entschlüsselt den Key serverseitig via `panel_api_key`-RPC und proxyt genau **eine** Operation ans Panel: `servers`, `resources`, `websocket`, `list`, `read`, `write`, `create-folder`, `delete`, `command`. Der reservierte Storage-Server wird als Ziel abgelehnt. Der Panel-Key erreicht den Browser nie. Keine Secrets nötig (URL/Key kommen pro Request aus der DB). Siehe `supabase/functions/feather-panel/README.md`.
+
+### 11.4 Öffentliches Lesen für Anonyme (`supabase/0019`)
+
+`0019` erweitert die `0017`-Lesepolicies von „angemeldet" auf `using (true)` für `teams`, `team_members`, `projects`, `deploys`, `deploy_bundles`, `commits`, `issues`, `issue_comments` — damit auch abgemeldete Web-Besucher browsen können. **Schreibrechte unverändert; `panels` bleiben Mitglieder-only.** Idempotent; nur für die Webapp nötig, die Desktop-App ist unberührt.
+
+### 11.5 Auto-Deploy in den Webroot
+
+`scripts/deploy-web.mjs` lädt das gebaute `web/dist` (als `web.tar.gz`) über die Pterodactyl-Client-API in `/webroot`: Webroot leeren → per Signed-URL hochladen → dekomprimieren → Archiv löschen. Ein `deploy-web`-Job in `.github/workflows/release.yml` baut die Webapp und ruft das Skript bei jedem Tag-Release; ohne die `WEBROOT_*`-Secrets überspringt es sich (Exit 0), das Release bleibt grün. Der Server-Aufbau (`/home/container/webroot` für die Seite, `/home/container/data` für Rollbacks/Commits) bleibt unangetastet.
+
+### 11.6 Verifikation & Unberührtheit der App
+
+Der Web-Build (`npm run web:build`) und `npm run web:check` laufen zusätzlich zur bestehenden App-Verifikation. Entscheidend: `npm run build` erzeugt **byte-identische** App-Bundles wie vor der Web-Arbeit, und `npm run check`/`npm test`/`cargo test` bleiben unverändert grün — die Installations-App ist nachweislich unverändert.
+
+**Neue Meilensteine (v3.0):** M50 (`feather-panel` Edge Function) · M51 (`supabase/0019` öffentliches anon-Lesen) · M52 (Web-SPA: Homepage, Suche, Ansichts-Seiten, Konsole) · M53 (CI-Webroot-Deploy, Version 3.0.0 + Docs) — abgeschlossen.

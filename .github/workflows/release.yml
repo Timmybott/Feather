@@ -43,3 +43,26 @@ jobs:
           releaseBody: "Download the installer for your platform below. Existing installations update themselves."
           releaseDraft: true
           prerelease: false
+
+  # Build the web app (web/dist) and upload it to the storage server's
+  # /webroot, so https://<the site> updates together with every release.
+  # Skips itself silently when the WEBROOT_* secrets aren't configured.
+  deploy-web:
+    name: Deploy web app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run web:build
+      - name: Pack web/dist
+        run: tar -czf web.tar.gz -C web/dist .
+      - name: Upload to server web root
+        env:
+          WEBROOT_PANEL_URL: ${{ secrets.WEBROOT_PANEL_URL }}
+          WEBROOT_SERVER_ID: ${{ secrets.WEBROOT_SERVER_ID }}
+          WEBROOT_API_KEY: ${{ secrets.WEBROOT_API_KEY }}
+        run: node scripts/deploy-web.mjs
