@@ -183,6 +183,11 @@ caller is a member of. See
 [`supabase/functions/feather-panel/README.md`](../supabase/functions/feather-panel/README.md).
 Skip this if you only run the desktop app — it never uses the proxy.
 
+> **Upgrading to v3.2:** redeploy **both** Edge Functions
+> (`supabase functions deploy feather-panel feather-storage`). v3.2 widens their
+> CORS to allow the browser's `apikey` header; without the redeploy the web app's
+> file, diff and console requests fail with *"Failed to fetch"*. No new migration.
+
 ## 4. Turn on email login
 
 1. Go to **Authentication → Providers → Email** and make sure it's enabled.

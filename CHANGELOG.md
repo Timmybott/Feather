@@ -6,6 +6,55 @@ All notable changes to Feather are documented here. The format follows
 
 ## [Unreleased]
 
+## [3.2.0] — 2026-07-26
+
+Web-app fixes and a much richer homepage.
+
+> **Redeploy both Edge Functions** for the fetch fix below:
+> `supabase functions deploy feather-panel feather-storage`. No new migration.
+
+### Fixed
+
+- **Files, commit diffs and the console no longer fail with "TypeError: Failed
+  to fetch" on the web.** The `feather-panel` and `feather-storage` Edge
+  Functions only allowed the `authorization` and `content-type` request headers
+  in their CORS policy, but the browser Supabase client also sends an `apikey`
+  (and `x-client-info`) header — so the CORS **preflight** was rejected and the
+  request never left the browser. Both functions now allow those headers.
+  **Redeploy both functions** to pick this up.
+- **Profile pictures that were external, expiring links now degrade cleanly.**
+  Uploaded avatars/logos (stored in Supabase Storage) always worked; what
+  "didn't load" were avatars pointing at **expiring third-party URLs** (e.g. a
+  Discord CDN link, which 404s after ~a day). Re-upload the image under your
+  profile to store a permanent URL. The web header avatar now falls back to your
+  initials when an image can't be loaded.
+
+### Changed
+
+- **Files and Console are members-only on the web.** Both reach the team's
+  panel, which is members-only, so they were already rejected server-side for
+  non-members — but the tabs were shown to everyone, which was misleading. They
+  now appear only when you're signed in as a member of the owning team. Overview,
+  Issues and History stay public.
+
+### Added
+
+- **A live homepage.** The landing page now reads from the public GitHub API, so
+  it's always current without a rebuild:
+  - **OS-aware download** — "Download for Windows/macOS/Linux" links straight to
+    the matching installer from the latest release (falling back to the releases
+    page).
+  - **What's new** — the recent releases as an expandable, Markdown-rendered
+    changelog.
+  - **Stats & contributors** — stars, forks, version and a contributor avatar
+    wall, linking back to GitHub.
+- **An account menu in the web header.** Your avatar (initials as a fallback)
+  opens a menu with **Your profile**, a **Your teams** list (each team links to
+  its page), and **Log out** — replacing the plain "Your profile" link.
+- **"Open in desktop app" buttons.** A project page offers to hand off to the
+  installable app (via a `feather://` deep link) for the things the web can't do
+  — committing and deploying.
+
 ## [3.1.0] — 2026-07-26
 
 A fix release for the web-app deploy.
@@ -627,6 +676,7 @@ First feature-complete version — everything from the v1 specification.
 - **Easy install** — Windows NSIS installer and a one-line Linux installer
   (`install.sh`, .deb on apt-based distros, AppImage elsewhere).
 
+[3.2.0]: https://github.com/Timmybott/Feather/releases/tag/v3.2.0
 [3.1.0]: https://github.com/Timmybott/Feather/releases/tag/v3.1.0
 [3.0.0]: https://github.com/Timmybott/Feather/releases/tag/v3.0.0
 [2.6.4]: https://github.com/Timmybott/Feather/releases/tag/v2.6.4

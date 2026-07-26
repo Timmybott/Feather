@@ -40,7 +40,10 @@ const STORAGE_KEY = Deno.env.get("FEATHER_STORAGE_KEY") ?? "";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type",
+  // `apikey` and `x-client-info` are sent by the browser Supabase client (the
+  // web app calls this function directly for commit diffs). They MUST be allowed
+  // or the CORS preflight fails and the browser reports "Failed to fetch".
+  "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
