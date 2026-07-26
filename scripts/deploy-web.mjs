@@ -33,7 +33,11 @@ function ptero(path, init = {}) {
   return fetch(new URL(path, PANEL), { ...init, headers });
 }
 
-async function must(res, what) {
+// Accepts a Response or a Promise<Response> (fetch/ptero return the latter), so
+// callers can pass the fetch call directly. Awaiting a non-promise is a no-op,
+// so an already-resolved Response works too.
+async function must(response, what) {
+  const res = await response;
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(`${what} failed: HTTP ${res.status} ${body}`);

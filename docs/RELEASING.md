@@ -52,8 +52,8 @@ The upload is done by [`scripts/deploy-web.mjs`](../scripts/deploy-web.mjs)
 4. Tag and push:
 
    ```sh
-   git tag v3.0.0
-   git push origin v3.0.0
+   git tag v3.1.0
+   git push origin v3.1.0
    ```
 
 5. The **Release** workflow builds:
