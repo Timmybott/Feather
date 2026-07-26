@@ -1,0 +1,20 @@
+/* Web-only overrides on top of the shared desktop theme (src/app.css).
+   The desktop app pins the shell to the viewport; the website scrolls like a
+   normal page and lets you select text. */
+
+#app {
+  height: auto;
+  min-height: 100vh;
+  display: block;
+}
+
+body {
+  user-select: auto;
+}
+
+/* A comfortable reading column for the web pages. */
+.web-main {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
+}

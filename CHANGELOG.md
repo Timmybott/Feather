@@ -6,6 +6,59 @@ All notable changes to Feather are documented here. The format follows
 
 ## [Unreleased]
 
+## [3.0.0] — 2026-07-26
+
+**Feather on the web.** A browser version of Feather — the same app, the same
+look, but view-focused: browse and search teams, users and projects, read
+Overviews, issues and full deploy/commit history, edit files and issues online,
+and watch the live console. What stays desktop-only is everything local:
+committing, deploying, rollback, linking a local folder. There's a **homepage**
+and **GitHub-style search**, and the site **auto-deploys to the server web root
+on every release**. **The installable desktop app is unchanged** — the web
+version reuses its Svelte components untouched.
+
+> **New database migration.** Run `supabase/0019_public_anon_read.sql` once in
+> the Supabase SQL editor (after 0001–0018), and deploy the new
+> **`feather-panel`** Edge Function (`supabase functions deploy feather-panel`).
+> See [docs/CLOUD-SETUP.md](docs/CLOUD-SETUP.md).
+
+### Added
+
+- **A web app (`web/`).** A single-page site that reuses the desktop app's
+  components, so every page — profiles, team pages, project Overview, Issues,
+  Files, History, Console — looks and behaves exactly like the app. It runs
+  "view-mostly": you can browse everything, create and comment on issues, and
+  edit files/issues online, but there is no commit, deploy, rollback or local
+  folder (those are inherently local to the desktop app).
+- **A homepage.** A Feather landing page with a hero, a search box, a link to
+  download the desktop app, and feature highlights.
+- **GitHub-style search.** Search **projects**, **teams** and **users** from the
+  header or the homepage and click straight through to their pages.
+- **Public browsing without an account.** Anyone can open the site and read
+  public teams, users, projects, Overviews, issues and history. Signing in is
+  only needed to write (issues/comments/file edits) and to reach a server's
+  files or live console (which require team membership).
+- **`feather-panel` Edge Function.** A browser-safe proxy to a team's
+  Pterodactyl panel: it authenticates the caller, confirms team membership
+  through Row-Level Security, and forwards a single file/server/console request
+  using the team's key — which never reaches the browser. The desktop app does
+  not use it (it talks to panels through the local core, unchanged). See
+  [`supabase/functions/feather-panel/README.md`](supabase/functions/feather-panel/README.md).
+- **Automatic web deploy on release.** The release workflow builds the web app
+  and uploads it to the storage server's `/webroot` (the Nginx web root),
+  alongside the rollback/commit snapshots in `/data` which stay untouched, so
+  the site updates with every tagged release. Configured via `WEBROOT_*` GitHub
+  secrets; the step skips itself when they're absent. See
+  [docs/RELEASING.md](docs/RELEASING.md).
+
+### Changed
+
+- **Reads are open to anonymous visitors too.** Migration `0019` relaxes the
+  read policies so a signed-out browser can view teams, members, projects,
+  deploys, commits and issues — the same open-source, GitHub-like model, now
+  reaching the public web. **Panels stay members-only** (they hold the encrypted
+  API keys), and all writes still require the right team/role.
+
 ## [2.6.4] — 2026-07-24
 
 A bug-fix release.
@@ -560,6 +613,7 @@ First feature-complete version — everything from the v1 specification.
 - **Easy install** — Windows NSIS installer and a one-line Linux installer
   (`install.sh`, .deb on apt-based distros, AppImage elsewhere).
 
+[3.0.0]: https://github.com/Timmybott/Feather/releases/tag/v3.0.0
 [2.6.4]: https://github.com/Timmybott/Feather/releases/tag/v2.6.4
 [2.6.3]: https://github.com/Timmybott/Feather/releases/tag/v2.6.3
 [2.6.2]: https://github.com/Timmybott/Feather/releases/tag/v2.6.2

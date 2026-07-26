@@ -138,13 +138,24 @@ you share) and you can browse another team's project read-only. **Writes are
 unchanged**, and **panels stay members-only** (they hold the encrypted API
 keys). Also idempotent.
 
-Last, run [`supabase/0018_deploy_details.sql`](../supabase/0018_deploy_details.sql)
+Then run [`supabase/0018_deploy_details.sql`](../supabase/0018_deploy_details.sql)
 in a **new query**. It adds an optional **`description`** to a Deploy (alongside
 its name) and recreates `release_bundle` to accept it. Also idempotent.
 
 > **v2.6 adds five migrations.** Run `0014`, `0015`, `0016`, `0017` and `0018`
 > (above) once, in order, after `0001`–`0013`. `0014` also creates the `images`
 > Storage bucket — avatars and logos won't upload until it exists.
+
+Last, run [`supabase/0019_public_anon_read.sql`](../supabase/0019_public_anon_read.sql)
+in a **new query**. It opens the same reads as `0017` to **anonymous** visitors,
+so the public [web app](../README.md#feather-on-the-web) can show teams, projects,
+deploy history, commits and issues to signed-out visitors. **Writes are still
+restricted**, and **panels stay members-only**. Also idempotent. Skip it if you
+don't run the web app — the desktop app doesn't need it.
+
+> **v3.0 adds one migration and one function.** Run `0019` (above) once, after
+> `0001`–`0018`, and deploy the `feather-panel` function (next section). Both are
+> only needed for the web app; the desktop app is unaffected either way.
 
 ## 3b. Deploy the storage function (cloud commits)
 
@@ -155,6 +166,22 @@ Function so its API key never ships in the app. Follow
 set the `FEATHER_STORAGE_KEY` secret and run `supabase functions deploy
 feather-storage`. Until it's deployed, Feather treats cloud storage as
 unavailable — so this step is safe to do whenever you're ready.
+
+## 3c. Deploy the panel proxy (web app only)
+
+The [web app](../README.md#feather-on-the-web) reaches a team's Pterodactyl
+panel through the **`feather-panel`** Edge Function (a browser can't call a panel
+directly, and the panel key must stay off the browser). Deploy it with:
+
+```sh
+supabase functions deploy feather-panel
+```
+
+**No secrets to set** — unlike `feather-storage`, this function reads the panel's
+URL and decrypts its key per request from the database, only for panels the
+caller is a member of. See
+[`supabase/functions/feather-panel/README.md`](../supabase/functions/feather-panel/README.md).
+Skip this if you only run the desktop app — it never uses the proxy.
 
 ## 4. Turn on email login
 
