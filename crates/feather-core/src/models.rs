@@ -50,6 +50,10 @@ pub struct Server {
     pub is_suspended: bool,
     #[serde(default)]
     pub is_installing: bool,
+    /// The server's Docker image (e.g. `ghcr.io/pterodactyl/yolks:nodejs_20`).
+    /// Used to infer the kind of server (Node.js, Python, website, game, …).
+    #[serde(default)]
+    pub docker_image: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

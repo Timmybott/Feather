@@ -106,6 +106,16 @@ Deno.serve(async (req) => {
           headers: { ...CORS, "content-type": "application/json" },
         });
       }
+      case "details": {
+        // The full server object (attributes include docker_image, invocation,
+        // limits, …) — used to show the server's kind on the web.
+        const res = await ptero(api);
+        if (!res.ok) return json({ error: `panel ${res.status}` }, 502);
+        return new Response(res.body, {
+          status: 200,
+          headers: { ...CORS, "content-type": "application/json" },
+        });
+      }
       case "websocket": {
         const res = await ptero(`${api}/websocket`);
         if (!res.ok) return json({ error: `panel ${res.status}` }, 502);

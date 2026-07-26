@@ -15,7 +15,9 @@
   import IssuesPanel from "../../src/lib/components/IssuesPanel.svelte";
   import Markdown from "../../src/lib/components/Markdown.svelte";
   import ProjectHistory from "../../src/lib/components/ProjectHistory.svelte";
+  import { serverKind, type ServerKind } from "../../src/lib/serverType";
   import { openInDesktop } from "../lib/desktop";
+  import { panelJson } from "../lib/panel";
   import { navigate } from "../lib/router.svelte";
   import WebConsole from "./WebConsole.svelte";
 
@@ -29,6 +31,7 @@
   let members = $state<TeamMember[]>([]);
   let issues = $state<Issue[]>([]);
   let deploys = $state<DeployEntry[]>([]);
+  let kind = $state<ServerKind | null>(null);
   let loading = $state(true);
   let error = $state<string | null>(null);
 
@@ -55,6 +58,17 @@
       members = m;
       issues = iss;
       deploys = dep;
+      // The server's kind (Node.js, Website, …) from its Docker image.
+      kind = null;
+      if (p.panel_id && p.server_identifier) {
+        void panelJson<{ attributes?: { docker_image?: string; invocation?: string } }>({
+          action: "details",
+          panel: p.panel_id,
+          server: p.server_identifier,
+        })
+          .then((d) => (kind = serverKind(d.attributes?.docker_image, d.attributes?.invocation)))
+          .catch(() => (kind = null));
+      }
     } catch (e) {
       error = String(e instanceof Error ? e.message : e);
     } finally {
@@ -87,6 +101,9 @@
         <div class="subline">
           <button class="team-chip" onclick={() => navigate(`/t/${project!.team_id}`)}>{teamName}</button>
           <span class="tag readonly" title="Read-only on the web">Web · read-only</span>
+          {#if kind}
+            <span class="tag kind" title="Server type (inferred from the panel)">{kind.label}</span>
+          {/if}
           {#if project.server_identifier}
             <span class="tag mono">{project.server_identifier}</span>
           {/if}
@@ -228,6 +245,11 @@
   .tag.readonly {
     color: var(--warn, #fbbf24);
     border-color: color-mix(in srgb, var(--warn, #fbbf24) 45%, transparent);
+  }
+
+  .tag.kind {
+    color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
   }
 
   .mono {

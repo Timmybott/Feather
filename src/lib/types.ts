@@ -56,6 +56,8 @@ export interface Server {
   status: string | null;
   is_suspended: boolean;
   is_installing: boolean;
+  /** Docker image (e.g. ".../yolks:nodejs_20"); used to infer the server kind. */
+  docker_image?: string;
 }
 
 export type PowerState = "running" | "starting" | "stopping" | "offline";
