@@ -6,6 +6,20 @@ All notable changes to Feather are documented here. The format follows
 
 ## [Unreleased]
 
+## [3.1.0] — 2026-07-26
+
+A fix release for the web-app deploy.
+
+### Fixed
+
+- **The release's web-app deploy no longer crashes with `res.text is not a
+  function`.** In `scripts/deploy-web.mjs` the `must()` helper was handed the
+  un-awaited `fetch()`/panel-request **Promise** instead of the resolved
+  `Response`, so it read `.ok`/`.text()` off a Promise and threw — failing the
+  `deploy-web` job on every release. `must()` now awaits its argument (a
+  Response *or* a Promise\<Response\>), fixing all four upload/delete/decompress
+  call sites. Pure CI-script fix; the app and web bundles are unchanged.
+
 ## [3.0.0] — 2026-07-26
 
 **Feather on the web.** A browser version of Feather — the same app, the same
@@ -613,6 +627,7 @@ First feature-complete version — everything from the v1 specification.
 - **Easy install** — Windows NSIS installer and a one-line Linux installer
   (`install.sh`, .deb on apt-based distros, AppImage elsewhere).
 
+[3.1.0]: https://github.com/Timmybott/Feather/releases/tag/v3.1.0
 [3.0.0]: https://github.com/Timmybott/Feather/releases/tag/v3.0.0
 [2.6.4]: https://github.com/Timmybott/Feather/releases/tag/v2.6.4
 [2.6.3]: https://github.com/Timmybott/Feather/releases/tag/v2.6.3
