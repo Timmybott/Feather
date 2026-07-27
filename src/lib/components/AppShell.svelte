@@ -355,6 +355,7 @@
     onOpenTeam={openTeamProfile}
     {onSwitchTeam}
     {onLogout}
+    onOpenProject={goToProject}
   />
   <nav class="tabs">
     <button class:active={current.kind === "projects"} onclick={() => openTab("projects")}>
