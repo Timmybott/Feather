@@ -202,6 +202,28 @@
       webBusy = false;
     }
   }
+
+  async function toggleAutoPublish() {
+    try {
+      const updated = await updateProject(project.id, {
+        web_auto_publish: !project.web_auto_publish,
+      });
+      onChanged(updated);
+    } catch (e) {
+      webError = String(e instanceof Error ? e.message : e);
+    }
+  }
+
+  /** After a deploy, re-publish the web deployment if the project opted in. */
+  async function autoPublishAfterDeploy() {
+    if (project.web_deploy && project.web_auto_publish && project.web_slug) {
+      try {
+        await publishWebDeployment(project.id, project.web_slug);
+      } catch (e) {
+        console.error("auto re-publish skipped:", e);
+      }
+    }
+  }
   let deleting = $state(false);
 
   // Per-device local folder binding.
@@ -597,7 +619,7 @@
       onOpenFile={() => (tab = "files")}
     />
   {:else if tab === "deploy"}
-    <DeployPanel {project} {localPath} {autoImport} {canWrite} onImported={() => (autoImport = false)} />
+    <DeployPanel {project} {localPath} {autoImport} {canWrite} onImported={() => (autoImport = false)} onDeployed={autoPublishAfterDeploy} />
   {:else if tab === "files"}
     {#if project.panel_id && project.server_identifier}
       <FileBrowser panelId={project.panel_id} identifier={project.server_identifier} {canWrite} />
@@ -699,6 +721,10 @@
             <p>Live at
               <a href={webDeployUrl(project)} target="_blank" rel="noopener noreferrer">{webDeployUrl(project)}</a>
             </p>
+            <label class="auto-publish">
+              <input type="checkbox" checked={project.web_auto_publish} onchange={toggleAutoPublish} />
+              Automatically re-publish after each deploy
+            </label>
             <div class="web-actions">
               <button type="button" class="ghost small" onclick={republishWebDeploy} disabled={webBusy}>
                 {webBusy ? "Working…" : "Re-publish latest deploy"}
@@ -1216,6 +1242,14 @@
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
+  }
+
+  .auto-publish {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    margin: 6px 0 10px;
   }
 
   .danger-zone {

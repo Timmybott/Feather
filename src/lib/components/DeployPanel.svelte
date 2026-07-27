@@ -38,6 +38,7 @@
     autoImport = false,
     canWrite = true,
     onImported,
+    onDeployed,
   }: {
     project: CloudProject;
     localPath: string | null;
@@ -45,6 +46,8 @@
     /** False for another team's project — read-only: history only, no deploy. */
     canWrite?: boolean;
     onImported?: () => void;
+    /** Fires after a successful deploy (used to auto re-publish web deployments). */
+    onDeployed?: () => void;
   } = $props();
 
   const config = $derived<ProjectConfig | null>(
@@ -232,6 +235,7 @@
             pendingDeploy.summary,
             pendingDeploy.description,
           );
+          onDeployed?.();
         } else if (kind === "rollback" && pendingRollbackManifest) {
           // The server now holds the rolled-back deploy — make it the baseline.
           try {

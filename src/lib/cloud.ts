@@ -321,12 +321,14 @@ export interface CloudProject {
   /** Web Deployments: the project's site is published under web_slug. */
   web_deploy: boolean;
   web_slug: string | null;
+  /** Re-publish the web deployment automatically after each deploy (0024). */
+  web_auto_publish: boolean;
   /** Readable URL slug (supabase/0022). */
   slug: string | null;
 }
 
 const PROJECT_COLUMNS =
-  "id, team_id, name, description, logo_url, panel_id, server_identifier, target_dir, build_command, post_deploy, auto_backup, created_by, created_at, web_deploy, web_slug, slug";
+  "id, team_id, name, description, logo_url, panel_id, server_identifier, target_dir, build_command, post_deploy, auto_backup, created_by, created_at, web_deploy, web_slug, web_auto_publish, slug";
 
 export async function listProjects(teamId: string): Promise<CloudProject[]> {
   const { data, error } = await supabase
@@ -388,6 +390,7 @@ export async function updateProject(
       | "build_command"
       | "post_deploy"
       | "auto_backup"
+      | "web_auto_publish"
     >
   >,
 ): Promise<CloudProject> {
