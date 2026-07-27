@@ -92,6 +92,7 @@
               {#if profile?.username}<span class="menu-handle">@{profile.username}</span>{/if}
             </div>
             <button class="menu-item" role="menuitem" onclick={() => go(`/u/${auth.user?.id ?? ""}`)}>Your profile</button>
+            <button class="menu-item" role="menuitem" onclick={() => go("/settings")}>Settings</button>
 
             <div class="menu-section">Your teams</div>
             {#if teams.length === 0}

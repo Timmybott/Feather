@@ -21,3 +21,6 @@ verify_jwt = false
 
 [functions.feather-storage]
 verify_jwt = false
+
+[functions.delete-account]
+verify_jwt = false

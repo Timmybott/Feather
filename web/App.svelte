@@ -6,6 +6,7 @@
   import UserProfile from "../src/lib/components/UserProfile.svelte";
   import Home from "./components/Home.svelte";
   import SearchPage from "./components/SearchPage.svelte";
+  import Settings from "./components/Settings.svelte";
   import WebHeader from "./components/WebHeader.svelte";
   import WebProject from "./components/WebProject.svelte";
   import { back, navigate, parse, router } from "./lib/router.svelte";
@@ -33,6 +34,8 @@
     <SearchPage q={route.query.get("q") ?? ""} />
   {:else if route.page === "login"}
     <div class="login-wrap"><AuthScreen /></div>
+  {:else if route.page === "settings"}
+    <Settings />
   {:else if route.page === "user"}
     {#key route.id}
       <UserProfile userId={route.id} onBack={back} onOpenTeam={openTeam} onOpenProject={openProject} />

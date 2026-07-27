@@ -44,6 +44,8 @@ export function parse(path: string): { page: string; id: string; query: URLSearc
       return { page: "search", id: "", query };
     case "login":
       return { page: "login", id: "", query };
+    case "settings":
+      return { page: "settings", id: "", query };
     case "u":
       return { page: "user", id, query };
     case "t":

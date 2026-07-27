@@ -108,6 +108,33 @@ export async function deleteTeam(teamId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+/**
+ * Permanently delete the signed-in account: every team the user owns (and its
+ * data) and the login itself. Runs through the `delete-account` Edge Function,
+ * which holds the service role; the client can't do this directly. Signs out on
+ * success.
+ */
+export async function deleteAccount(): Promise<void> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error("You are not signed in.");
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/delete-account`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, apikey: SUPABASE_ANON_KEY },
+  });
+  if (!res.ok) {
+    let msg = `account deletion failed (${res.status})`;
+    try {
+      const body = (await res.json()) as { error?: string };
+      if (body?.error) msg = body.error;
+    } catch {
+      // keep status message
+    }
+    throw new Error(msg);
+  }
+  await supabase.auth.signOut();
+}
+
 // --- Panels (Pterodactyl connections, shared in the team) ------------------
 //
 // The API key is never selected from this table — the `api_key_encrypted`
