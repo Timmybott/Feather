@@ -1,6 +1,7 @@
 <script lang="ts">
   import { auth } from "../auth.svelte";
   import {
+    deleteTeam,
     getTeam,
     listDeploys,
     listIssues,
@@ -21,12 +22,14 @@
     teamId,
     onBack,
     onUpdated,
+    onDeleted,
     onOpenProfile,
     onOpenProject,
   }: {
     teamId: string;
     onBack: () => void;
     onUpdated?: (team: Team) => void;
+    onDeleted?: () => void;
     onOpenProfile?: (userId: string) => void;
     onOpenProject?: (projectId: string) => void;
   } = $props();
@@ -70,6 +73,8 @@
   // Edit buffer.
   let editing = $state(false);
   let saving = $state(false);
+  let confirmDelete = $state(false);
+  let deleting = $state(false);
   let name = $state("");
   let location = $state("");
   let website = $state("");
@@ -137,6 +142,19 @@
     }
   }
 
+  async function doDelete() {
+    if (!team) return;
+    deleting = true;
+    error = null;
+    try {
+      await deleteTeam(teamId);
+      onDeleted?.();
+    } catch (e) {
+      error = String(e instanceof Error ? e.message : e);
+      deleting = false;
+    }
+  }
+
   function created(iso: string): string {
     return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "long" });
   }
@@ -201,6 +219,22 @@
           <button class="primary" onclick={save} disabled={saving || name.trim() === ""}>
             {saving ? "Saving…" : "Save"}
           </button>
+        </div>
+
+        <div class="danger">
+          <h3>Danger zone</h3>
+          {#if !confirmDelete}
+            <p class="muted">Deleting the team permanently removes its projects, panels, deploys, commits and issues for everyone. This cannot be undone.</p>
+            <button class="danger-btn" onclick={() => (confirmDelete = true)}>Delete team…</button>
+          {:else}
+            <p class="muted">Really delete <strong>{team.name}</strong> and everything in it?</p>
+            <div class="row-actions end">
+              <button class="ghost" onclick={() => (confirmDelete = false)} disabled={deleting}>Cancel</button>
+              <button class="danger-btn" onclick={doDelete} disabled={deleting}>
+                {deleting ? "Deleting…" : "Delete permanently"}
+              </button>
+            </div>
+          {/if}
         </div>
       </div>
     {:else}
@@ -556,6 +590,39 @@
     margin-top: 14px;
     font-size: 12px;
     text-align: center;
+  }
+
+  .danger {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid color-mix(in srgb, var(--danger, #f87171) 40%, var(--border));
+  }
+
+  .danger h3 {
+    font-size: 13px;
+    color: var(--danger, #f87171);
+    margin-bottom: 6px;
+  }
+
+  .danger p {
+    font-size: 12px;
+    margin-bottom: 10px;
+    line-height: 1.5;
+  }
+
+  .danger-btn {
+    background: transparent;
+    border: 1px solid var(--danger, #f87171);
+    color: var(--danger, #f87171);
+    border-radius: 8px;
+    padding: 7px 13px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .danger-btn:hover:not(:disabled) {
+    background: var(--danger, #f87171);
+    color: #fff;
   }
 
   @media (max-width: 640px) {

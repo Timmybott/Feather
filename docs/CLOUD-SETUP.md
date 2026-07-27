@@ -157,6 +157,24 @@ don't run the web app — the desktop app doesn't need it.
 > `0001`–`0018`, and deploy the `feather-panel` function (next section). Both are
 > only needed for the web app; the desktop app is unaffected either way.
 
+Then run [`supabase/0020_delete_team.sql`](../supabase/0020_delete_team.sql)
+in a **new query**. It adds an owner-only `delete_team()` function so a team can
+be deleted along with all of its data (every team-scoped table cascades from
+`teams`). Also idempotent.
+
+Then run [`supabase/0021_web_deploy.sql`](../supabase/0021_web_deploy.sql) in a
+**new query**. It adds `web_deploy` / `web_slug` to projects and a member-only
+`set_web_deploy()` function, powering **Web Deployments** (publishing a project's
+site to `https://feather.spcfy.eu/webdeployment/<slug>/`). The file copy is done
+by the `feather-storage` function's `publish-web` action, so no extra setup —
+just make sure `feather-storage` is deployed (below). Also idempotent.
+
+Then run [`supabase/0022_slugs.sql`](../supabase/0022_slugs.sql) in a **new
+query**. It adds a unique `slug` to teams and projects (generated from the name,
+backfilled) so the web app can use **readable URLs** like `/team/<slug>` and
+`/project/<slug>`. Also idempotent. (The web app also needs an nginx SPA
+fallback — see `docs/RELEASING.md`.)
+
 ## 3b. Deploy the storage function (cloud commits)
 
 Feather stores commit snapshots and rollbacks as files on a dedicated
@@ -183,10 +201,28 @@ caller is a member of. See
 [`supabase/functions/feather-panel/README.md`](../supabase/functions/feather-panel/README.md).
 Skip this if you only run the desktop app — it never uses the proxy.
 
-> **Upgrading to v3.2:** redeploy **both** Edge Functions
-> (`supabase functions deploy feather-panel feather-storage`). v3.2 widens their
-> CORS to allow the browser's `apikey` header; without the redeploy the web app's
-> file, diff and console requests fail with *"Failed to fetch"*. No new migration.
+The web Settings page can delete an account; that needs the **`delete-account`**
+function (it removes the teams you own, then your login, using the service role):
+
+```sh
+supabase functions deploy delete-account
+```
+
+> **⚠️ Gateway JWT must be off (fixes "Failed to fetch").** All three functions
+> authenticate callers themselves, so Supabase's gateway JWT check must be
+> disabled — otherwise it rejects the browser's CORS **preflight** (an OPTIONS
+> request with no `Authorization` header) and the web app shows *"Failed to
+> fetch"* on files, diffs and the console. The repo's
+> [`supabase/config.toml`](../supabase/config.toml) already sets
+> `verify_jwt = false` for `feather-panel`, `feather-storage` and
+> `delete-account`, so a normal deploy from the repo applies it:
+>
+> ```sh
+> supabase functions deploy feather-panel feather-storage delete-account
+> ```
+>
+> (Equivalent to adding `--no-verify-jwt` to each deploy.) **After upgrading you
+> must redeploy** for the web app to work.
 
 ## 4. Turn on email login
 

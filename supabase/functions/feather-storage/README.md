@@ -17,7 +17,13 @@ function derives itself from ids (the client never passes a path):
 ```
 
 The folder tree is created on first write, so you do **not** need to create
-`data/` by hand. Nginx and the rest of the server are never touched.
+`data/` by hand.
+
+**Web Deployments** (the `publish-web` / `unpublish-web` actions) are the one
+exception that writes outside `data/`: they copy a project's latest deployed
+snapshot into the Nginx web root at `webroot/webdeployment/<slug>/`, so the site
+is reachable at `https://feather.spcfy.eu/webdeployment/<slug>/`. Only a member
+of the project's team can publish or unpublish, and only under that fixed path.
 
 ## One-time setup
 

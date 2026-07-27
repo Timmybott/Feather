@@ -37,6 +37,23 @@ Add (repo → Settings → Secrets → Actions):
 The upload is done by [`scripts/deploy-web.mjs`](../scripts/deploy-web.mjs)
 (clear `/webroot` → upload `web.tar.gz` → decompress → remove the archive).
 
+### nginx: SPA fallback for readable URLs (one-time)
+
+The web app uses clean, hash-free URLs (`/team/<slug>`, `/user/<name>`,
+`/project/<slug>`). For deep links and refreshes to work, the nginx server that
+serves `/webroot` must fall back to `index.html` for unknown paths. Add this to
+the server block (it serves real files/dirs first, so `/webdeployment/<slug>/`
+sites and `/assets/…` still resolve directly):
+
+```nginx
+location / {
+    try_files $uri $uri/ /index.html;
+}
+```
+
+Without it, opening `https://feather.spcfy.eu/team/acme` directly returns 404
+(in-app navigation still works, but a hard refresh on a deep URL would fail).
+
 ## Every release
 
 1. Bump the version in `Cargo.toml` (workspace), `package.json` and

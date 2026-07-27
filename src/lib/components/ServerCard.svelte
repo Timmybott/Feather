@@ -1,5 +1,6 @@
 <script lang="ts">
   import { cpuPercent, formatBytes, formatMib, memoryPercent } from "../format";
+  import { serverKind } from "../serverType";
   import type {
     DeployStep,
     LiveState,
@@ -184,6 +185,9 @@
     <div class="title-block">
       <h3>{server.name}</h3>
       <span class="muted node">{server.node}</span>
+      {#if server.docker_image}
+        <span class="kind-chip" title="Server type (from its Docker image)">{serverKind(server.docker_image).label}</span>
+      {/if}
       {#if linkedProject && onOpenProject}
         <button class="proj-chip" onclick={() => onOpenProject(linkedProject.id)} title="Open the Feather project for this server">
           {linkedProject.name} ↗
@@ -336,6 +340,18 @@
 
   .node {
     font-size: 12px;
+  }
+
+  .kind-chip {
+    display: inline-block;
+    margin-top: 4px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    border-radius: 20px;
+    padding: 2px 9px;
+    font-size: 11px;
+    font-weight: 600;
   }
 
   .proj-chip {

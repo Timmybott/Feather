@@ -6,8 +6,10 @@
     clearActivePanel,
     getProjectPath,
     listProjectPaths,
+    onDeepLink,
     removeLocalProject,
     setActivePanel,
+    takePendingDeepLink,
   } from "../api";
   import { checkProject, projectConfig } from "../sync.svelte";
   import { auth } from "../auth.svelte";
@@ -91,6 +93,19 @@
   function goToServer(panelId: string, identifier: string) {
     managing = false;
     push({ kind: "panels", focusServer: { panelId, identifier } });
+  }
+
+  /**
+   * Route a `feather://…` deep link (from the web app's "Open in desktop app").
+   * Supports feather://project/<id>, feather://team/<id>, feather://user/<id>.
+   */
+  function routeDeepLink(raw: string) {
+    const rest = raw.replace(/^feather:\/\//i, "").replace(/^\/+/, "");
+    const [kind, id] = rest.split(/[/?#]/);
+    if (!id) return;
+    if (kind === "project") goToProject(id);
+    else if (kind === "team") openTeamProfile(id);
+    else if (kind === "user") openProfile(id);
   }
 
   let panels = $state<CloudPanel[]>([]);
@@ -311,8 +326,17 @@
     })();
     // Keep every teammate current while the app is open (foreground or not).
     syncTimer = setInterval(() => void runSyncSweep(), 25_000);
+    // Deep links: consume the cold-start URL, then listen for live ones.
+    void takePendingDeepLink()
+      .then((url) => url && routeDeepLink(url))
+      .catch(() => {});
+    let unlistenDeepLink: (() => void) | null = null;
+    void onDeepLink(routeDeepLink)
+      .then((un) => (unlistenDeepLink = un))
+      .catch(() => {});
     return () => {
       if (syncTimer) clearInterval(syncTimer);
+      unlistenDeepLink?.();
     };
   });
 
@@ -356,6 +380,7 @@
         teamId={current.teamId}
         onBack={back}
         onUpdated={onTeamUpdated}
+        onDeleted={() => window.location.reload()}
         onOpenProfile={openProfile}
         onOpenProject={goToProject}
       />

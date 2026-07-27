@@ -19,7 +19,7 @@
 // by the runtime: SUPABASE_URL, SUPABASE_ANON_KEY.
 // Optional: STORAGE_SERVER_ID (default 893a2ffd) — refused as a target.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const RESERVED_SERVER_ID = Deno.env.get("STORAGE_SERVER_ID") ?? "893a2ffd";
 
@@ -100,6 +100,16 @@ Deno.serve(async (req) => {
       }
       case "resources": {
         const res = await ptero(`${api}/resources`);
+        if (!res.ok) return json({ error: `panel ${res.status}` }, 502);
+        return new Response(res.body, {
+          status: 200,
+          headers: { ...CORS, "content-type": "application/json" },
+        });
+      }
+      case "details": {
+        // The full server object (attributes include docker_image, invocation,
+        // limits, …) — used to show the server's kind on the web.
+        const res = await ptero(api);
         if (!res.ok) return json({ error: `panel ${res.status}` }, 502);
         return new Response(res.body, {
           status: 200,

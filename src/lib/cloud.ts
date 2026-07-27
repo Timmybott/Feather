@@ -13,9 +13,12 @@ export interface Team {
   logo_url: string | null;
   description: string | null;
   created_at: string;
+  /** Readable URL slug (supabase/0022). */
+  slug: string | null;
 }
 
-const TEAM_COLUMNS = "id, name, owner_id, location, website, logo_url, description, created_at";
+const TEAM_COLUMNS =
+  "id, name, owner_id, location, website, logo_url, description, created_at, slug";
 
 /** Optional profile fields set when creating a team or editing it later. */
 export interface TeamProfileInput {
@@ -97,6 +100,44 @@ export async function updateTeam(
   return data as Team;
 }
 
+/**
+ * Delete a whole team and everything under it (owner-only; enforced in the
+ * `delete_team` function). Every team-scoped table cascades from teams(id), so
+ * members, panels, projects, deploys, commits and issues go with it. Requires
+ * migration `0020`.
+ */
+export async function deleteTeam(teamId: string): Promise<void> {
+  const { error } = await supabase.rpc("delete_team", { p_team: teamId });
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Permanently delete the signed-in account: every team the user owns (and its
+ * data) and the login itself. Runs through the `delete-account` Edge Function,
+ * which holds the service role; the client can't do this directly. Signs out on
+ * success.
+ */
+export async function deleteAccount(): Promise<void> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error("You are not signed in.");
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/delete-account`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, apikey: SUPABASE_ANON_KEY },
+  });
+  if (!res.ok) {
+    let msg = `account deletion failed (${res.status})`;
+    try {
+      const body = (await res.json()) as { error?: string };
+      if (body?.error) msg = body.error;
+    } catch {
+      // keep status message
+    }
+    throw new Error(msg);
+  }
+  await supabase.auth.signOut();
+}
+
 // --- Panels (Pterodactyl connections, shared in the team) ------------------
 //
 // The API key is never selected from this table — the `api_key_encrypted`
@@ -167,6 +208,100 @@ export async function panelApiKey(panelId: string): Promise<string> {
 // each teammate deploys from stays on their own machine; only this shared
 // definition lives in the cloud.
 
+// --- Readable-URL resolution (slug / username → id) ------------------------
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function looksLikeId(ref: string): boolean {
+  return UUID_RE.test(ref);
+}
+
+/** Resolve a team ref (uuid or slug) to its id. */
+export async function resolveTeamId(ref: string): Promise<string> {
+  if (UUID_RE.test(ref)) return ref;
+  const { data, error } = await supabase.from("teams").select("id").eq("slug", ref).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Team not found");
+  return data.id as string;
+}
+
+/** Resolve a project ref (uuid or slug) to its id. */
+export async function resolveProjectId(ref: string): Promise<string> {
+  if (UUID_RE.test(ref)) return ref;
+  const { data, error } = await supabase.from("projects").select("id").eq("slug", ref).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Project not found");
+  return data.id as string;
+}
+
+/** Resolve a user ref (uuid or username) to its id. */
+export async function resolveUserId(ref: string): Promise<string> {
+  if (UUID_RE.test(ref)) return ref;
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("username", ref)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("User not found");
+  return data.id as string;
+}
+
+// --- Web Deployments -------------------------------------------------------
+
+/** Public base for published project sites (served by the Feather nginx server). */
+export const WEB_DEPLOY_BASE = "https://feather.spcfy.eu/webdeployment/";
+
+/** The public URL of a project's web deployment, or null when not enabled. */
+export function webDeployUrl(project: {
+  web_deploy: boolean;
+  web_slug: string | null;
+}): string | null {
+  return project.web_deploy && project.web_slug
+    ? `${WEB_DEPLOY_BASE}${project.web_slug}/`
+    : null;
+}
+
+/** Enable/disable web deployment (members only); returns the assigned slug. */
+export async function setWebDeploy(projectId: string, enabled: boolean): Promise<string | null> {
+  const { data, error } = await supabase.rpc("set_web_deploy", {
+    p_project: projectId,
+    p_enabled: enabled,
+  });
+  if (error) throw new Error(error.message);
+  return (data as string | null) ?? null;
+}
+
+async function storageWebAction(action: string, projectId: string, slug: string): Promise<void> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error("You are not signed in.");
+  const res = await fetch(
+    `${SUPABASE_URL}/functions/v1/feather-storage?action=${action}&project_id=${projectId}&slug=${encodeURIComponent(slug)}`,
+    { method: "POST", headers: { Authorization: `Bearer ${token}`, apikey: SUPABASE_ANON_KEY } },
+  );
+  if (!res.ok) {
+    let msg = `${action} failed (${res.status})`;
+    try {
+      const b = (await res.json()) as { error?: string };
+      if (b?.error) msg = b.error;
+    } catch {
+      // keep status message
+    }
+    throw new Error(msg);
+  }
+}
+
+/** Publish the project's latest deployed snapshot to its web deployment. */
+export function publishWebDeployment(projectId: string, slug: string): Promise<void> {
+  return storageWebAction("publish-web", projectId, slug);
+}
+
+/** Take a project's web deployment offline (removes the published files). */
+export function unpublishWebDeployment(projectId: string, slug: string): Promise<void> {
+  return storageWebAction("unpublish-web", projectId, slug);
+}
+
 export type PostDeploy = "restart" | "notify";
 
 export interface CloudProject {
@@ -183,10 +318,15 @@ export interface CloudProject {
   auto_backup: boolean;
   created_by: string | null;
   created_at: string;
+  /** Web Deployments: the project's site is published under web_slug. */
+  web_deploy: boolean;
+  web_slug: string | null;
+  /** Readable URL slug (supabase/0022). */
+  slug: string | null;
 }
 
 const PROJECT_COLUMNS =
-  "id, team_id, name, description, logo_url, panel_id, server_identifier, target_dir, build_command, post_deploy, auto_backup, created_by, created_at";
+  "id, team_id, name, description, logo_url, panel_id, server_identifier, target_dir, build_command, post_deploy, auto_backup, created_by, created_at, web_deploy, web_slug, slug";
 
 export async function listProjects(teamId: string): Promise<CloudProject[]> {
   const { data, error } = await supabase

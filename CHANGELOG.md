@@ -6,6 +6,69 @@ All notable changes to Feather are documented here. The format follows
 
 ## [Unreleased]
 
+The following are planned for the next release and **not yet shipped**: a
+project **Planning/Organisation** tab (chats, tasks, to-do lists), and creating
+Pterodactyl servers from inside Feather.
+
+## [3.3.0] — 2026-07-27
+
+Web fetch fix, server-type detection, team deletion and a Settings menu.
+
+> **Redeploy the Edge Functions** (this is what finally fixes the web
+> "Failed to fetch"): `supabase functions deploy feather-panel feather-storage`.
+> New: `supabase functions deploy delete-account`. Run migration
+> `supabase/0020_delete_team.sql`. See [docs/CLOUD-SETUP.md](docs/CLOUD-SETUP.md).
+
+### Fixed
+
+- **The web app's files, commit diffs and console now actually load.** The v3.2
+  CORS headers weren't enough on their own: Supabase's gateway verifies the JWT
+  by default and **rejects the browser's CORS preflight** (an OPTIONS request
+  carries no `Authorization` header) with a 401 that has no CORS headers, so the
+  browser reported *"Failed to fetch"*. A new `supabase/config.toml` sets
+  `verify_jwt = false` for both functions (they do their own auth), so the
+  preflight and the request reach the function. **Redeploy both** to apply.
+- **The Edge Function source no longer shows editor "red squiggles".** The
+  `supabase-js` import moved from the `esm.sh` URL to the modern
+  `npm:@supabase/supabase-js@2` specifier, which resolves cleanly.
+
+### Added
+
+- **Server-type detection.** Feather infers a server's kind (Website, Node.js,
+  Python, Go, Minecraft, FiveM/GTA V, database, …) from its Docker image and
+  shows it as a chip on each **Panels-tab** tile and on the **web project page**.
+  A shared classifier also marks web-capable kinds for the upcoming Web
+  Deployments.
+- **Delete a team.** The team owner can permanently delete a team (and all its
+  projects, panels, deploys, commits and issues) from the team page's Danger
+  zone — migration `0020`, an owner-only `delete_team()` function.
+- **A web Settings menu.** Reached from the header avatar (**Settings**): the app
+  version with a "latest release" check against GitHub, a browser-notifications
+  toggle, sign out, and **account deletion** (a new `delete-account` Edge
+  Function removes every team you own, then your login).
+- **"Open in desktop app" now works.** The desktop app registers the
+  `feather://` URL scheme (Tauri deep-link + single-instance plugins), so the web
+  app's "Open in desktop app" button hands off to the installed app and opens the
+  right page — `feather://project/<id>`, `feather://team/<id>`,
+  `feather://user/<id>` — focusing the running window instead of launching a
+  second one. (Effective once you're on a build that includes this; the browser
+  side already emitted these links.)
+- **Web Deployments.** A web-capable project (Website/Node.js/Python/Go/…) can be
+  put online from the desktop **Settings → Web Deployments**: enabling it
+  publishes the project's latest deployed snapshot to the Feather nginx server at
+  **`https://feather.spcfy.eu/webdeployment/<slug>/`**, shown as a green
+  **● Live ↗** badge on the project page (desktop and web). Migration `0021`
+  (member-only `set_web_deploy()` + `web_deploy`/`web_slug`) and two new
+  `feather-storage` actions (`publish-web` / `unpublish-web`) that copy the
+  snapshot into `/webroot/webdeployment/<slug>/`. Re-publish after a deploy to
+  refresh the live site. The server-type chip now also shows on the desktop
+  project page.
+- **Readable, hash-free web URLs.** The web app now uses clean paths —
+  `/team/<slug>`, `/user/<username>`, `/project/<slug>`, `/settings` — instead of
+  `#/t/<uuid>` (migration `0022` adds auto-generated unique slugs to teams and
+  projects; users use their username). Old `#/…` links redirect automatically. A
+  one-line nginx SPA fallback is required for deep links (see docs/RELEASING.md).
+
 ## [3.2.0] — 2026-07-26
 
 Web-app fixes and a much richer homepage.
@@ -676,6 +739,7 @@ First feature-complete version — everything from the v1 specification.
 - **Easy install** — Windows NSIS installer and a one-line Linux installer
   (`install.sh`, .deb on apt-based distros, AppImage elsewhere).
 
+[3.3.0]: https://github.com/Timmybott/Feather/releases/tag/v3.3.0
 [3.2.0]: https://github.com/Timmybott/Feather/releases/tag/v3.2.0
 [3.1.0]: https://github.com/Timmybott/Feather/releases/tag/v3.1.0
 [3.0.0]: https://github.com/Timmybott/Feather/releases/tag/v3.0.0

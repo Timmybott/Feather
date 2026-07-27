@@ -28,7 +28,7 @@
 // Provided automatically by the Supabase runtime:
 //   SUPABASE_URL, SUPABASE_ANON_KEY
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const PANEL_URL = (Deno.env.get("STORAGE_PANEL_URL") ?? "https://panel.spaceify.eu/").replace(
   /\/?$/,
@@ -54,6 +54,27 @@ function json(body: unknown, status = 200): Response {
     status,
     headers: { ...CORS, "content-type": "application/json" },
   });
+}
+
+/** URL-safe slug for a web deployment path (lowercase, [a-z0-9-]). */
+function slugify(raw: string): string {
+  return raw.toLowerCase().replace(/[^a-z0-9-]/g, "").replace(/^-+|-+$/g, "");
+}
+
+/** True when the caller (from the request's token) is a member of `teamId`. */
+async function isMember(
+  sb: ReturnType<typeof createClient>,
+  teamId: string,
+): Promise<boolean> {
+  const { data: auth } = await sb.auth.getUser();
+  if (!auth.user) return false;
+  const { data } = await sb
+    .from("team_members")
+    .select("user_id")
+    .eq("team_id", teamId)
+    .eq("user_id", auth.user.id)
+    .maybeSingle();
+  return !!data;
 }
 
 /** A Pterodactyl client-API call against the storage server. */
@@ -92,9 +113,10 @@ Deno.serve(async (req) => {
   const commitId = url.searchParams.get("commit_id") ?? "";
   const kind = url.searchParams.get("kind") ?? "commit"; // commit | rollback
 
+  const needsCommit = action !== "list" && action !== "publish-web" && action !== "unpublish-web";
   if (!UUID.test(projectId)) return json({ error: "bad project_id" }, 400);
   if (kind !== "commit" && kind !== "rollback") return json({ error: "bad kind" }, 400);
-  if (action !== "list" && !UUID.test(commitId)) return json({ error: "bad commit_id" }, 400);
+  if (needsCommit && !UUID.test(commitId)) return json({ error: "bad commit_id" }, 400);
 
   // 1 + 2. Authenticate and authorize via the caller's token + RLS.
   const authHeader = req.headers.get("Authorization") ?? "";
@@ -162,6 +184,92 @@ Deno.serve(async (req) => {
           status: 200,
           headers: { ...CORS, "content-type": "application/json" },
         });
+      }
+      case "publish-web": {
+        // Publish the project's latest deployed snapshot to the nginx web root
+        // under /webroot/webdeployment/<slug>/ (members only).
+        if (!(await isMember(supabase, project.team_id))) {
+          return json({ error: "only team members can publish" }, 403);
+        }
+        const slug = slugify(url.searchParams.get("slug") ?? "");
+        if (!slug) return json({ error: "bad slug" }, 400);
+
+        // The most recent released deploy bundle → its full-tree snapshot.
+        const { data: bundle } = await supabase
+          .from("deploy_bundles")
+          .select("id")
+          .eq("project_id", projectId)
+          .eq("status", "released")
+          .order("released_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!bundle) return json({ error: "deploy the project first" }, 409);
+
+        const snap = `/${ROOT}/${project.team_id}/${projectId}/rollbacks/${bundle.id}.zip`;
+        const dl = await ptero(
+          `api/client/servers/${SERVER_ID}/files/download?file=${encodeURIComponent(snap)}`,
+        );
+        if (!dl.ok) return json({ error: `snapshot read failed: ${dl.status}` }, 502);
+        const signed = (await dl.json())?.attributes?.url;
+        if (!signed) return json({ error: "no download url" }, 502);
+        const zipRes = await fetch(signed);
+        if (!zipRes.ok) return json({ error: `snapshot download failed: ${zipRes.status}` }, 502);
+        const zipBytes = new Uint8Array(await zipRes.arrayBuffer());
+
+        const target = `/webroot/webdeployment/${slug}`;
+        await ensureDir(`webroot/webdeployment/${slug}`);
+        // Clear any previous publish so removed files don't linger.
+        const listing = await ptero(
+          `api/client/servers/${SERVER_ID}/files/list?directory=${encodeURIComponent(target)}`,
+        );
+        if (listing.ok) {
+          const names = ((await listing.json()).data ?? []).map(
+            (f: { attributes: { name: string } }) => f.attributes.name,
+          );
+          if (names.length > 0) {
+            await ptero(`api/client/servers/${SERVER_ID}/files/delete`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ root: target, files: names }),
+            });
+          }
+        }
+        // Upload the snapshot into the target dir, extract it, remove the archive.
+        const up = await ptero(`api/client/servers/${SERVER_ID}/files/upload`);
+        if (!up.ok) return json({ error: `upload url failed: ${up.status}` }, 502);
+        const uploadUrl = (await up.json()).attributes.url;
+        const form = new FormData();
+        form.append("files", new Blob([zipBytes]), "site.zip");
+        const put = await fetch(`${uploadUrl}&directory=${encodeURIComponent(target)}`, {
+          method: "POST",
+          body: form,
+        });
+        if (!put.ok) return json({ error: `upload failed: ${put.status}` }, 502);
+        const dec = await ptero(`api/client/servers/${SERVER_ID}/files/decompress`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ root: target, file: "site.zip" }),
+        });
+        if (!dec.ok) return json({ error: `decompress failed: ${dec.status}` }, 502);
+        await ptero(`api/client/servers/${SERVER_ID}/files/delete`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ root: target, files: ["site.zip"] }),
+        });
+        return json({ ok: true, slug });
+      }
+      case "unpublish-web": {
+        if (!(await isMember(supabase, project.team_id))) {
+          return json({ error: "only team members can unpublish" }, 403);
+        }
+        const slug = slugify(url.searchParams.get("slug") ?? "");
+        if (!slug) return json({ error: "bad slug" }, 400);
+        await ptero(`api/client/servers/${SERVER_ID}/files/delete`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ root: "/webroot/webdeployment", files: [slug] }),
+        });
+        return json({ ok: true });
       }
       default:
         return json({ error: "unknown action" }, 400);

@@ -3,8 +3,13 @@
     deleteProject,
     listDeploys,
     listIssues,
+    publishWebDeployment,
     requestProjectDeletion,
+    setWebDeploy,
+    unpublishWebDeployment,
     updateProject,
+    webDeployUrl,
+    WEB_DEPLOY_BASE,
     type CloudPanel,
     type CloudProject,
     type DeployEntry,
@@ -15,10 +20,12 @@
   import { open } from "@tauri-apps/plugin-dialog";
   import {
     getProjectPath,
+    listServers,
     removeLocalProject,
     removeProjectPath,
     setProjectPath,
   } from "../api";
+  import { serverKind, type ServerKind } from "../serverType";
   import { toggleTaskInMarkdown } from "../markdown";
   import DeployPanel from "./DeployPanel.svelte";
   import FileBrowser from "./FileBrowser.svelte";
@@ -124,6 +131,70 @@
   let savingSettings = $state(false);
 
   let dangerMode = $state<null | "feather" | "everywhere">(null);
+
+  // Server kind (from the Docker image) — shown as a chip, and gates the Web
+  // Deployments feature to web-capable servers.
+  let kind = $state<ServerKind | null>(null);
+  $effect(() => {
+    const pid = project.panel_id;
+    const sid = project.server_identifier;
+    kind = null;
+    if (pid && sid) {
+      void listServers(pid)
+        .then((servers) => {
+          const s = servers.find((x) => x.identifier === sid);
+          kind = s ? serverKind(s.docker_image) : null;
+        })
+        .catch(() => (kind = null));
+    }
+  });
+
+  // Web Deployments.
+  let webBusy = $state(false);
+  let webError = $state<string | null>(null);
+
+  async function enableWebDeploy() {
+    webBusy = true;
+    webError = null;
+    try {
+      const slug = await setWebDeploy(project.id, true);
+      const updated = { ...project, web_deploy: true, web_slug: slug };
+      onChanged(updated);
+      if (slug) await publishWebDeployment(project.id, slug);
+    } catch (e) {
+      webError = String(e instanceof Error ? e.message : e);
+    } finally {
+      webBusy = false;
+    }
+  }
+
+  async function republishWebDeploy() {
+    if (!project.web_slug) return;
+    webBusy = true;
+    webError = null;
+    try {
+      await publishWebDeployment(project.id, project.web_slug);
+    } catch (e) {
+      webError = String(e instanceof Error ? e.message : e);
+    } finally {
+      webBusy = false;
+    }
+  }
+
+  async function disableWebDeploy() {
+    webBusy = true;
+    webError = null;
+    try {
+      const slug = project.web_slug;
+      await setWebDeploy(project.id, false);
+      onChanged({ ...project, web_deploy: false });
+      if (slug) await unpublishWebDeployment(project.id, slug).catch(() => {});
+    } catch (e) {
+      webError = String(e instanceof Error ? e.message : e);
+    } finally {
+      webBusy = false;
+    }
+  }
   let deleting = $state(false);
 
   // Per-device local folder binding.
@@ -332,10 +403,16 @@
           {#if panelName}
             <span class="tag">{panelName}</span>
           {/if}
+          {#if kind}
+            <span class="tag kind" title="Server type (from its Docker image)">{kind.label}</span>
+          {/if}
           {#if project.server_identifier}
             <span class="tag mono">{project.server_identifier}</span>
           {:else}
             <span class="muted">Not linked to a server yet</span>
+          {/if}
+          {#if webDeployUrl(project)}
+            <a class="tag live" href={webDeployUrl(project)} target="_blank" rel="noopener noreferrer" title="Open the live site">● Live ↗</a>
           {/if}
           {#if linkedServer && canWrite}
             <button class="ghost small open-panels" onclick={openServer} title="Show this server's tile in the Panels tab">
@@ -585,6 +662,33 @@
           </div>
         {/if}
       </fieldset>
+
+      {#if project.panel_id && project.server_identifier}
+        <fieldset class="web-deploy">
+          <legend>Web Deployments</legend>
+          {#if kind && !kind.webCapable}
+            <p class="muted">This looks like a {kind.label} server. Web Deployments are for servers that can host a website (Website, Node.js, Python, Go, …).</p>
+          {/if}
+          {#if !project.web_deploy}
+            <p class="muted">Publish this project's latest deploy online — reachable in any browser at <code>{WEB_DEPLOY_BASE}&lt;slug&gt;/</code>.</p>
+            <button type="button" class="primary small" onclick={enableWebDeploy} disabled={webBusy}>
+              {webBusy ? "Publishing…" : "Enable & publish"}
+            </button>
+          {:else}
+            <p>Live at
+              <a href={webDeployUrl(project)} target="_blank" rel="noopener noreferrer">{webDeployUrl(project)}</a>
+            </p>
+            <div class="web-actions">
+              <button type="button" class="ghost small" onclick={republishWebDeploy} disabled={webBusy}>
+                {webBusy ? "Working…" : "Re-publish latest deploy"}
+              </button>
+              <button type="button" class="ghost small danger" onclick={disableWebDeploy} disabled={webBusy}>Take offline</button>
+            </div>
+            <p class="muted small">Re-publish after a new deploy to update the live site.</p>
+          {/if}
+          {#if webError}<p class="error">{webError}</p>{/if}
+        </fieldset>
+      {/if}
 
       <div class="danger-zone">
         <h3>Danger zone</h3>
@@ -1038,6 +1142,59 @@
 
   .check {
     margin: 4px 0 4px;
+  }
+
+  .tag.kind {
+    color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+
+  .tag.live {
+    color: var(--ok, #34d399);
+    border-color: color-mix(in srgb, var(--ok, #34d399) 45%, transparent);
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  .web-deploy {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-top: 18px;
+  }
+
+  .web-deploy legend {
+    font-size: 13px;
+    font-weight: 700;
+    padding: 0 6px;
+  }
+
+  .web-deploy p {
+    font-size: 13px;
+    margin-bottom: 10px;
+    line-height: 1.5;
+  }
+
+  .web-deploy p.small {
+    font-size: 11px;
+    margin-top: 8px;
+    margin-bottom: 0;
+  }
+
+  .web-deploy a {
+    color: var(--accent);
+    word-break: break-all;
+  }
+
+  .web-deploy code {
+    font-family: ui-monospace, monospace;
+    font-size: 12px;
+  }
+
+  .web-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
   }
 
   .danger-zone {

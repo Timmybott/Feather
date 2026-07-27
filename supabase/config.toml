@@ -1,0 +1,26 @@
+# Supabase CLI config for Feather — Edge Function settings.
+#
+# Both functions authenticate the caller THEMSELVES: they require a Bearer token,
+# verify it, and check team membership through Row-Level Security. Gateway-level
+# JWT verification is therefore redundant — and, importantly, it BREAKS the web
+# app. A browser CORS preflight (the automatic OPTIONS request) carries no
+# Authorization header, so a gateway with verify_jwt = true answers it with 401
+# and no CORS headers; the browser then reports "TypeError: Failed to fetch" on
+# files, diffs and the console. (The desktop app is unaffected because it does
+# not do a CORS preflight.)
+#
+# Turning verify_jwt off here lets the preflight and the real request reach the
+# function, which does the actual authorization. This is equivalent to deploying
+# with `supabase functions deploy <name> --no-verify-jwt`.
+#
+# Deploy both after changing them:
+#   supabase functions deploy feather-panel feather-storage
+
+[functions.feather-panel]
+verify_jwt = false
+
+[functions.feather-storage]
+verify_jwt = false
+
+[functions.delete-account]
+verify_jwt = false
