@@ -162,6 +162,13 @@ in a **new query**. It adds an owner-only `delete_team()` function so a team can
 be deleted along with all of its data (every team-scoped table cascades from
 `teams`). Also idempotent.
 
+Then run [`supabase/0021_web_deploy.sql`](../supabase/0021_web_deploy.sql) in a
+**new query**. It adds `web_deploy` / `web_slug` to projects and a member-only
+`set_web_deploy()` function, powering **Web Deployments** (publishing a project's
+site to `https://feather.spcfy.eu/webdeployment/<slug>/`). The file copy is done
+by the `feather-storage` function's `publish-web` action, so no extra setup —
+just make sure `feather-storage` is deployed (below). Also idempotent.
+
 ## 3b. Deploy the storage function (cloud commits)
 
 Feather stores commit snapshots and rollbacks as files on a dedicated

@@ -205,6 +205,61 @@ export async function panelApiKey(panelId: string): Promise<string> {
 // each teammate deploys from stays on their own machine; only this shared
 // definition lives in the cloud.
 
+// --- Web Deployments -------------------------------------------------------
+
+/** Public base for published project sites (served by the Feather nginx server). */
+export const WEB_DEPLOY_BASE = "https://feather.spcfy.eu/webdeployment/";
+
+/** The public URL of a project's web deployment, or null when not enabled. */
+export function webDeployUrl(project: {
+  web_deploy: boolean;
+  web_slug: string | null;
+}): string | null {
+  return project.web_deploy && project.web_slug
+    ? `${WEB_DEPLOY_BASE}${project.web_slug}/`
+    : null;
+}
+
+/** Enable/disable web deployment (members only); returns the assigned slug. */
+export async function setWebDeploy(projectId: string, enabled: boolean): Promise<string | null> {
+  const { data, error } = await supabase.rpc("set_web_deploy", {
+    p_project: projectId,
+    p_enabled: enabled,
+  });
+  if (error) throw new Error(error.message);
+  return (data as string | null) ?? null;
+}
+
+async function storageWebAction(action: string, projectId: string, slug: string): Promise<void> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error("You are not signed in.");
+  const res = await fetch(
+    `${SUPABASE_URL}/functions/v1/feather-storage?action=${action}&project_id=${projectId}&slug=${encodeURIComponent(slug)}`,
+    { method: "POST", headers: { Authorization: `Bearer ${token}`, apikey: SUPABASE_ANON_KEY } },
+  );
+  if (!res.ok) {
+    let msg = `${action} failed (${res.status})`;
+    try {
+      const b = (await res.json()) as { error?: string };
+      if (b?.error) msg = b.error;
+    } catch {
+      // keep status message
+    }
+    throw new Error(msg);
+  }
+}
+
+/** Publish the project's latest deployed snapshot to its web deployment. */
+export function publishWebDeployment(projectId: string, slug: string): Promise<void> {
+  return storageWebAction("publish-web", projectId, slug);
+}
+
+/** Take a project's web deployment offline (removes the published files). */
+export function unpublishWebDeployment(projectId: string, slug: string): Promise<void> {
+  return storageWebAction("unpublish-web", projectId, slug);
+}
+
 export type PostDeploy = "restart" | "notify";
 
 export interface CloudProject {
@@ -221,10 +276,13 @@ export interface CloudProject {
   auto_backup: boolean;
   created_by: string | null;
   created_at: string;
+  /** Web Deployments: the project's site is published under web_slug. */
+  web_deploy: boolean;
+  web_slug: string | null;
 }
 
 const PROJECT_COLUMNS =
-  "id, team_id, name, description, logo_url, panel_id, server_identifier, target_dir, build_command, post_deploy, auto_backup, created_by, created_at";
+  "id, team_id, name, description, logo_url, panel_id, server_identifier, target_dir, build_command, post_deploy, auto_backup, created_by, created_at, web_deploy, web_slug";
 
 export async function listProjects(teamId: string): Promise<CloudProject[]> {
   const { data, error } = await supabase

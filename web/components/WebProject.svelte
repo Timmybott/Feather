@@ -6,6 +6,7 @@
     listDeploys,
     listIssues,
     listMembers,
+    webDeployUrl,
     type CloudProject,
     type DeployEntry,
     type Issue,
@@ -106,6 +107,9 @@
           {/if}
           {#if project.server_identifier}
             <span class="tag mono">{project.server_identifier}</span>
+          {/if}
+          {#if webDeployUrl(project)}
+            <a class="tag live" href={webDeployUrl(project)} target="_blank" rel="noopener noreferrer" title="Open the live site">● Live ↗</a>
           {/if}
         </div>
       </div>
@@ -250,6 +254,13 @@
   .tag.kind {
     color: var(--accent);
     border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+
+  .tag.live {
+    color: var(--ok, #34d399);
+    border-color: color-mix(in srgb, var(--ok, #34d399) 45%, transparent);
+    text-decoration: none;
+    font-weight: 600;
   }
 
   .mono {

@@ -6,10 +6,9 @@ All notable changes to Feather are documented here. The format follows
 
 ## [Unreleased]
 
-The following are planned for the next release and **not yet shipped**: putting
-a project online via **Web Deployments**, fully hash-free **readable URLs**, a
-project **Planning/Organisation** tab (chats, tasks, to-do lists), and creating
-Pterodactyl servers from inside Feather.
+The following are planned for the next release and **not yet shipped**: fully
+hash-free **readable URLs**, a project **Planning/Organisation** tab (chats,
+tasks, to-do lists), and creating Pterodactyl servers from inside Feather.
 
 ## [3.3.0] — 2026-07-27
 
@@ -54,6 +53,16 @@ Web fetch fix, server-type detection, team deletion and a Settings menu.
   `feather://user/<id>` — focusing the running window instead of launching a
   second one. (Effective once you're on a build that includes this; the browser
   side already emitted these links.)
+- **Web Deployments.** A web-capable project (Website/Node.js/Python/Go/…) can be
+  put online from the desktop **Settings → Web Deployments**: enabling it
+  publishes the project's latest deployed snapshot to the Feather nginx server at
+  **`https://feather.spcfy.eu/webdeployment/<slug>/`**, shown as a green
+  **● Live ↗** badge on the project page (desktop and web). Migration `0021`
+  (member-only `set_web_deploy()` + `web_deploy`/`web_slug`) and two new
+  `feather-storage` actions (`publish-web` / `unpublish-web`) that copy the
+  snapshot into `/webroot/webdeployment/<slug>/`. Re-publish after a deploy to
+  refresh the live site. The server-type chip now also shows on the desktop
+  project page.
 
 ## [3.2.0] — 2026-07-26
 
