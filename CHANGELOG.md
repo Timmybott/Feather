@@ -6,9 +6,9 @@ All notable changes to Feather are documented here. The format follows
 
 ## [Unreleased]
 
-The following are planned for the next release and **not yet shipped**: fully
-hash-free **readable URLs**, a project **Planning/Organisation** tab (chats,
-tasks, to-do lists), and creating Pterodactyl servers from inside Feather.
+The following are planned for the next release and **not yet shipped**: a
+project **Planning/Organisation** tab (chats, tasks, to-do lists), and creating
+Pterodactyl servers from inside Feather.
 
 ## [3.3.0] — 2026-07-27
 
@@ -63,6 +63,11 @@ Web fetch fix, server-type detection, team deletion and a Settings menu.
   snapshot into `/webroot/webdeployment/<slug>/`. Re-publish after a deploy to
   refresh the live site. The server-type chip now also shows on the desktop
   project page.
+- **Readable, hash-free web URLs.** The web app now uses clean paths —
+  `/team/<slug>`, `/user/<username>`, `/project/<slug>`, `/settings` — instead of
+  `#/t/<uuid>` (migration `0022` adds auto-generated unique slugs to teams and
+  projects; users use their username). Old `#/…` links redirect automatically. A
+  one-line nginx SPA fallback is required for deep links (see docs/RELEASING.md).
 
 ## [3.2.0] — 2026-07-26
 

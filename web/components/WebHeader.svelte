@@ -91,7 +91,7 @@
               <span class="menu-name">{profile?.display_name || profile?.username || "You"}</span>
               {#if profile?.username}<span class="menu-handle">@{profile.username}</span>{/if}
             </div>
-            <button class="menu-item" role="menuitem" onclick={() => go(`/u/${auth.user?.id ?? ""}`)}>Your profile</button>
+            <button class="menu-item" role="menuitem" onclick={() => go(`/user/${profile?.username ?? auth.user?.id ?? ""}`)}>Your profile</button>
             <button class="menu-item" role="menuitem" onclick={() => go("/settings")}>Settings</button>
 
             <div class="menu-section">Your teams</div>
@@ -99,7 +99,7 @@
               <div class="menu-empty">No teams yet</div>
             {:else}
               {#each teams as t (t.id)}
-                <button class="menu-item team" role="menuitem" onclick={() => go(`/t/${t.id}`)}>
+                <button class="menu-item team" role="menuitem" onclick={() => go(`/team/${t.slug ?? t.id}`)}>
                   {#if t.logo_url}<img class="team-logo" src={t.logo_url} alt="" />{:else}<span class="team-logo ph">{t.name.charAt(0).toUpperCase()}</span>{/if}
                   <span class="team-name">{t.name}</span>
                 </button>

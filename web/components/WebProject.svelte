@@ -29,6 +29,7 @@
 
   let project = $state<CloudProject | null>(null);
   let teamName = $state("");
+  let teamSlug = $state<string | null>(null);
   let members = $state<TeamMember[]>([]);
   let issues = $state<Issue[]>([]);
   let deploys = $state<DeployEntry[]>([]);
@@ -56,6 +57,7 @@
         listDeploys(p.id).catch(() => [] as DeployEntry[]),
       ]);
       teamName = team?.name ?? "";
+      teamSlug = team?.slug ?? null;
       members = m;
       issues = iss;
       deploys = dep;
@@ -100,7 +102,7 @@
       <div class="head-text">
         <h1>{project.name}</h1>
         <div class="subline">
-          <button class="team-chip" onclick={() => navigate(`/t/${project!.team_id}`)}>{teamName}</button>
+          <button class="team-chip" onclick={() => navigate(`/team/${teamSlug ?? project!.team_id}`)}>{teamName}</button>
           <span class="tag readonly" title="Read-only on the web">Web · read-only</span>
           {#if kind}
             <span class="tag kind" title="Server type (inferred from the panel)">{kind.label}</span>

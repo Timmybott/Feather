@@ -60,7 +60,7 @@
       <ul class="list">
         {#each projects as p (p.id)}
           <li>
-            <button class="row" onclick={() => navigate(`/p/${p.id}`)}>
+            <button class="row" onclick={() => navigate(`/project/${p.slug ?? p.id}`)}>
               {#if p.logo_url}<img class="ic" src={p.logo_url} alt="" />{:else}<span class="ic ph">{p.name.charAt(0).toUpperCase()}</span>{/if}
               <span class="main"><span class="name">{p.name}</span><span class="muted sub">{p.description || "No description"}</span></span>
             </button>
@@ -75,7 +75,7 @@
       <ul class="list">
         {#each teams as t (t.id)}
           <li>
-            <button class="row" onclick={() => navigate(`/t/${t.id}`)}>
+            <button class="row" onclick={() => navigate(`/team/${t.slug ?? t.id}`)}>
               {#if t.logo_url}<img class="ic" src={t.logo_url} alt="" />{:else}<span class="ic ph">{t.name.charAt(0).toUpperCase()}</span>{/if}
               <span class="main"><span class="name">{t.name}</span><span class="muted sub">{t.description || "Team"}</span></span>
             </button>
@@ -89,7 +89,7 @@
     <ul class="list">
       {#each users as u (u.id)}
         <li>
-          <button class="row" onclick={() => navigate(`/u/${u.id}`)}>
+          <button class="row" onclick={() => navigate(`/user/${u.username ?? u.id}`)}>
             {#if u.avatar_url}<img class="ic round" src={u.avatar_url} alt="" />{:else}<span class="ic ph round">{userName(u).charAt(0).toUpperCase()}</span>{/if}
             <span class="main"><span class="name">{userName(u)}</span>{#if u.username}<span class="muted sub">@{u.username}</span>{/if}</span>
           </button>

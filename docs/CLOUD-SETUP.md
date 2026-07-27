@@ -169,6 +169,12 @@ site to `https://feather.spcfy.eu/webdeployment/<slug>/`). The file copy is done
 by the `feather-storage` function's `publish-web` action, so no extra setup —
 just make sure `feather-storage` is deployed (below). Also idempotent.
 
+Then run [`supabase/0022_slugs.sql`](../supabase/0022_slugs.sql) in a **new
+query**. It adds a unique `slug` to teams and projects (generated from the name,
+backfilled) so the web app can use **readable URLs** like `/team/<slug>` and
+`/project/<slug>`. Also idempotent. (The web app also needs an nginx SPA
+fallback — see `docs/RELEASING.md`.)
+
 ## 3b. Deploy the storage function (cloud commits)
 
 Feather stores commit snapshots and rollbacks as files on a dedicated

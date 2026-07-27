@@ -4,9 +4,10 @@
 import { supabase } from "../../src/lib/supabase";
 import type { CloudProject, Team, UserProfile } from "../../src/lib/cloud";
 
-const TEAM_COLUMNS = "id, name, owner_id, location, website, logo_url, description, created_at";
+const TEAM_COLUMNS =
+  "id, name, owner_id, location, website, logo_url, description, created_at, slug";
 const PROJECT_COLUMNS =
-  "id, team_id, name, description, logo_url, panel_id, server_identifier, target_dir, build_command, post_deploy, auto_backup, created_by, created_at, web_deploy, web_slug";
+  "id, team_id, name, description, logo_url, panel_id, server_identifier, target_dir, build_command, post_deploy, auto_backup, created_by, created_at, web_deploy, web_slug, slug";
 const PROFILE_COLUMNS =
   "id, username, display_name, location, website, avatar_url, bio, created_at";
 

@@ -13,9 +13,12 @@ export interface Team {
   logo_url: string | null;
   description: string | null;
   created_at: string;
+  /** Readable URL slug (supabase/0022). */
+  slug: string | null;
 }
 
-const TEAM_COLUMNS = "id, name, owner_id, location, website, logo_url, description, created_at";
+const TEAM_COLUMNS =
+  "id, name, owner_id, location, website, logo_url, description, created_at, slug";
 
 /** Optional profile fields set when creating a team or editing it later. */
 export interface TeamProfileInput {
@@ -205,6 +208,45 @@ export async function panelApiKey(panelId: string): Promise<string> {
 // each teammate deploys from stays on their own machine; only this shared
 // definition lives in the cloud.
 
+// --- Readable-URL resolution (slug / username → id) ------------------------
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function looksLikeId(ref: string): boolean {
+  return UUID_RE.test(ref);
+}
+
+/** Resolve a team ref (uuid or slug) to its id. */
+export async function resolveTeamId(ref: string): Promise<string> {
+  if (UUID_RE.test(ref)) return ref;
+  const { data, error } = await supabase.from("teams").select("id").eq("slug", ref).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Team not found");
+  return data.id as string;
+}
+
+/** Resolve a project ref (uuid or slug) to its id. */
+export async function resolveProjectId(ref: string): Promise<string> {
+  if (UUID_RE.test(ref)) return ref;
+  const { data, error } = await supabase.from("projects").select("id").eq("slug", ref).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Project not found");
+  return data.id as string;
+}
+
+/** Resolve a user ref (uuid or username) to its id. */
+export async function resolveUserId(ref: string): Promise<string> {
+  if (UUID_RE.test(ref)) return ref;
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("username", ref)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("User not found");
+  return data.id as string;
+}
+
 // --- Web Deployments -------------------------------------------------------
 
 /** Public base for published project sites (served by the Feather nginx server). */
@@ -279,10 +321,12 @@ export interface CloudProject {
   /** Web Deployments: the project's site is published under web_slug. */
   web_deploy: boolean;
   web_slug: string | null;
+  /** Readable URL slug (supabase/0022). */
+  slug: string | null;
 }
 
 const PROJECT_COLUMNS =
-  "id, team_id, name, description, logo_url, panel_id, server_identifier, target_dir, build_command, post_deploy, auto_backup, created_by, created_at, web_deploy, web_slug";
+  "id, team_id, name, description, logo_url, panel_id, server_identifier, target_dir, build_command, post_deploy, auto_backup, created_by, created_at, web_deploy, web_slug, slug";
 
 export async function listProjects(teamId: string): Promise<CloudProject[]> {
   const { data, error } = await supabase
