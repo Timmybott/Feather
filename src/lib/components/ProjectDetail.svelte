@@ -26,6 +26,8 @@
     setProjectPath,
   } from "../api";
   import { serverKind, type ServerKind } from "../serverType";
+  import { auth } from "../auth.svelte";
+  import PlanningTab from "./PlanningTab.svelte";
   import { toggleTaskInMarkdown } from "../markdown";
   import DeployPanel from "./DeployPanel.svelte";
   import FileBrowser from "./FileBrowser.svelte";
@@ -77,8 +79,13 @@
     if (linkedServer) onOpenServer(linkedServer.panelId, linkedServer.identifier);
   }
 
-  type Tab = "overview" | "issues" | "deploy" | "files" | "settings";
+  type Tab = "overview" | "issues" | "planning" | "deploy" | "files" | "settings";
   let tab = $state<Tab>("overview");
+
+  // Is the current user an admin/owner of this project's team? (For chat creation.)
+  const isTeamAdmin = $derived(
+    members.some((m) => m.user_id === auth.user?.id && (m.role === "owner" || m.role === "admin")),
+  );
 
   let error = $state<string | null>(null);
 
@@ -427,6 +434,9 @@
   <nav class="subtabs">
     <button class:active={tab === "overview"} onclick={() => (tab = "overview")}>Overview</button>
     <button class:active={tab === "issues"} onclick={() => (tab = "issues")}>Issues</button>
+    {#if canInteract}
+      <button class:active={tab === "planning"} onclick={() => (tab = "planning")}>Planning</button>
+    {/if}
     <button class:active={tab === "deploy"} onclick={() => (tab = "deploy")}>{canWrite ? "Deploy" : "History"}</button>
     <button class:active={tab === "files"} onclick={() => (tab = "files")}>Files</button>
     {#if canWrite}
@@ -575,6 +585,17 @@
     </div>
   {:else if tab === "issues"}
     <IssuesPanel projectId={project.id} {canWrite} {canInteract} {onOpenProfile} />
+  {:else if tab === "planning"}
+    <PlanningTab
+      projectId={project.id}
+      teamId={project.team_id}
+      {members}
+      {issues}
+      currentUserId={auth.user?.id ?? null}
+      isMember={canInteract}
+      isAdmin={isTeamAdmin}
+      onOpenFile={() => (tab = "files")}
+    />
   {:else if tab === "deploy"}
     <DeployPanel {project} {localPath} {autoImport} {canWrite} onImported={() => (autoImport = false)} />
   {:else if tab === "files"}

@@ -15,6 +15,7 @@
   import FileBrowser from "../../src/lib/components/FileBrowser.svelte";
   import IssuesPanel from "../../src/lib/components/IssuesPanel.svelte";
   import Markdown from "../../src/lib/components/Markdown.svelte";
+  import PlanningTab from "../../src/lib/components/PlanningTab.svelte";
   import ProjectHistory from "../../src/lib/components/ProjectHistory.svelte";
   import { serverKind, type ServerKind } from "../../src/lib/serverType";
   import { openInDesktop } from "../lib/desktop";
@@ -24,7 +25,7 @@
 
   let { projectId }: { projectId: string } = $props();
 
-  type Tab = "overview" | "issues" | "files" | "history" | "console";
+  type Tab = "overview" | "issues" | "planning" | "files" | "history" | "console";
   let tab = $state<Tab>("overview");
 
   let project = $state<CloudProject | null>(null);
@@ -39,6 +40,10 @@
 
   const isMember = $derived(
     !!auth.user && members.some((m) => m.user_id === auth.user!.id),
+  );
+  const isAdmin = $derived(
+    !!auth.user &&
+      members.some((m) => m.user_id === auth.user!.id && (m.role === "owner" || m.role === "admin")),
   );
   const hasServer = $derived(!!project?.panel_id && !!project?.server_identifier);
   const openIssues = $derived(issues.filter((i) => i.status === "open").length);
@@ -127,6 +132,9 @@
     <nav class="subtabs">
       <button class:active={tab === "overview"} onclick={() => (tab = "overview")}>Overview</button>
       <button class:active={tab === "issues"} onclick={() => (tab = "issues")}>Issues</button>
+      {#if isMember}
+        <button class:active={tab === "planning"} onclick={() => (tab = "planning")}>Planning</button>
+      {/if}
       <button class:active={tab === "history"} onclick={() => (tab = "history")}>History</button>
       <!-- Files and the live console reach the team's panel, which is
            members-only — the feather-panel proxy rejects non-members. Only
@@ -155,7 +163,18 @@
         <p class="hint muted">You're viewing this project on the web. Sign in as a team member to edit files, use the console or open issues. The desktop app adds committing and deploying.</p>
       {/if}
     {:else if tab === "issues"}
-      <IssuesPanel projectId={project.id} canWrite={false} canInteract={isMember} onOpenProfile={(id) => navigate(`/u/${id}`)} />
+      <IssuesPanel projectId={project.id} canWrite={false} canInteract={isMember} onOpenProfile={(id) => navigate(`/user/${id}`)} />
+    {:else if tab === "planning" && isMember}
+      <PlanningTab
+        projectId={project.id}
+        teamId={project.team_id}
+        {members}
+        {issues}
+        currentUserId={auth.user?.id ?? null}
+        {isMember}
+        {isAdmin}
+        onOpenFile={() => (tab = "files")}
+      />
     {:else if tab === "files" && hasServer && isMember}
       <FileBrowser panelId={project.panel_id!} identifier={project.server_identifier!} canWrite={isMember} />
     {:else if tab === "console" && hasServer && isMember}
