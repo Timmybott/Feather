@@ -1,6 +1,7 @@
 <script lang="ts">
   import { type CloudPanel, type CloudProject } from "../cloud";
   import NewProjectDialog from "./NewProjectDialog.svelte";
+  import NewServerWizard from "./NewServerWizard.svelte";
 
   let {
     teamId,
@@ -20,6 +21,7 @@
 
   let error = $state<string | null>(null);
   let showNew = $state(false);
+  let showWizard = $state(false);
 
   function panelName(id: string | null): string | null {
     return id ? (panels.find((p) => p.id === id)?.name ?? null) : null;
@@ -49,7 +51,10 @@
         issues, and deploy it. Shared with everyone on the team.
       </p>
     </div>
-    <button class="primary" onclick={openNew}>New project</button>
+    <div class="head-actions">
+      <button class="ghost" onclick={() => (showWizard = true)}>New server</button>
+      <button class="primary" onclick={openNew}>New project</button>
+    </div>
   </div>
 
   {#if error}<p class="error">{error}</p>{/if}
@@ -101,6 +106,10 @@
   />
 {/if}
 
+{#if showWizard}
+  <NewServerWizard {panels} onImport={openNew} onClose={() => (showWizard = false)} />
+{/if}
+
 <style>
   .projects {
     max-width: 720px;
@@ -116,6 +125,12 @@
   }
 
   .head .primary {
+    flex-shrink: 0;
+  }
+
+  .head-actions {
+    display: flex;
+    gap: 8px;
     flex-shrink: 0;
   }
 
