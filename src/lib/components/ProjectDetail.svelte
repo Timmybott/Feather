@@ -26,6 +26,8 @@
     setProjectPath,
   } from "../api";
   import { serverKind, type ServerKind } from "../serverType";
+  import { auth } from "../auth.svelte";
+  import PlanningTab from "./PlanningTab.svelte";
   import { toggleTaskInMarkdown } from "../markdown";
   import DeployPanel from "./DeployPanel.svelte";
   import FileBrowser from "./FileBrowser.svelte";
@@ -77,8 +79,13 @@
     if (linkedServer) onOpenServer(linkedServer.panelId, linkedServer.identifier);
   }
 
-  type Tab = "overview" | "issues" | "deploy" | "files" | "settings";
+  type Tab = "overview" | "issues" | "planning" | "deploy" | "files" | "settings";
   let tab = $state<Tab>("overview");
+
+  // Is the current user an admin/owner of this project's team? (For chat creation.)
+  const isTeamAdmin = $derived(
+    members.some((m) => m.user_id === auth.user?.id && (m.role === "owner" || m.role === "admin")),
+  );
 
   let error = $state<string | null>(null);
 
@@ -193,6 +200,28 @@
       webError = String(e instanceof Error ? e.message : e);
     } finally {
       webBusy = false;
+    }
+  }
+
+  async function toggleAutoPublish() {
+    try {
+      const updated = await updateProject(project.id, {
+        web_auto_publish: !project.web_auto_publish,
+      });
+      onChanged(updated);
+    } catch (e) {
+      webError = String(e instanceof Error ? e.message : e);
+    }
+  }
+
+  /** After a deploy, re-publish the web deployment if the project opted in. */
+  async function autoPublishAfterDeploy() {
+    if (project.web_deploy && project.web_auto_publish && project.web_slug) {
+      try {
+        await publishWebDeployment(project.id, project.web_slug);
+      } catch (e) {
+        console.error("auto re-publish skipped:", e);
+      }
     }
   }
   let deleting = $state(false);
@@ -427,6 +456,9 @@
   <nav class="subtabs">
     <button class:active={tab === "overview"} onclick={() => (tab = "overview")}>Overview</button>
     <button class:active={tab === "issues"} onclick={() => (tab = "issues")}>Issues</button>
+    {#if canInteract}
+      <button class:active={tab === "planning"} onclick={() => (tab = "planning")}>Planning</button>
+    {/if}
     <button class:active={tab === "deploy"} onclick={() => (tab = "deploy")}>{canWrite ? "Deploy" : "History"}</button>
     <button class:active={tab === "files"} onclick={() => (tab = "files")}>Files</button>
     {#if canWrite}
@@ -575,8 +607,19 @@
     </div>
   {:else if tab === "issues"}
     <IssuesPanel projectId={project.id} {canWrite} {canInteract} {onOpenProfile} />
+  {:else if tab === "planning"}
+    <PlanningTab
+      projectId={project.id}
+      teamId={project.team_id}
+      {members}
+      {issues}
+      currentUserId={auth.user?.id ?? null}
+      isMember={canInteract}
+      isAdmin={isTeamAdmin}
+      onOpenFile={() => (tab = "files")}
+    />
   {:else if tab === "deploy"}
-    <DeployPanel {project} {localPath} {autoImport} {canWrite} onImported={() => (autoImport = false)} />
+    <DeployPanel {project} {localPath} {autoImport} {canWrite} onImported={() => (autoImport = false)} onDeployed={autoPublishAfterDeploy} />
   {:else if tab === "files"}
     {#if project.panel_id && project.server_identifier}
       <FileBrowser panelId={project.panel_id} identifier={project.server_identifier} {canWrite} />
@@ -678,6 +721,10 @@
             <p>Live at
               <a href={webDeployUrl(project)} target="_blank" rel="noopener noreferrer">{webDeployUrl(project)}</a>
             </p>
+            <label class="auto-publish">
+              <input type="checkbox" checked={project.web_auto_publish} onchange={toggleAutoPublish} />
+              Automatically re-publish after each deploy
+            </label>
             <div class="web-actions">
               <button type="button" class="ghost small" onclick={republishWebDeploy} disabled={webBusy}>
                 {webBusy ? "Working…" : "Re-publish latest deploy"}
@@ -1195,6 +1242,14 @@
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
+  }
+
+  .auto-publish {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    margin: 6px 0 10px;
   }
 
   .danger-zone {

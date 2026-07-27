@@ -29,6 +29,7 @@
   import { teamState } from "../team.svelte";
   import Footer from "./Footer.svelte";
   import Header from "./Header.svelte";
+  import DesktopSettings from "./DesktopSettings.svelte";
   import MembersScreen from "./MembersScreen.svelte";
   import PanelManager from "./PanelManager.svelte";
   import ProjectDetail from "./ProjectDetail.svelte";
@@ -114,6 +115,7 @@
   let members = $state<TeamMember[]>([]);
   let connecting = $state(true);
   let managing = $state(false);
+  let showSettings = $state(false);
   let update = $state<Update | null>(null);
 
   // A project belonging to another team the user is also on: viewable read-only
@@ -347,6 +349,10 @@
   }
 </script>
 
+{#if showSettings}
+  <DesktopSettings onClose={() => (showSettings = false)} />
+{/if}
+
 <div class="shell">
   <Header
     {userEmail}
@@ -355,6 +361,8 @@
     onOpenTeam={openTeamProfile}
     {onSwitchTeam}
     {onLogout}
+    onOpenProject={goToProject}
+    onOpenSettings={() => (showSettings = true)}
   />
   <nav class="tabs">
     <button class:active={current.kind === "projects"} onclick={() => openTab("projects")}>

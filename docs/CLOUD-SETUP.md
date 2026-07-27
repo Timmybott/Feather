@@ -175,6 +175,21 @@ backfilled) so the web app can use **readable URLs** like `/team/<slug>` and
 `/project/<slug>`. Also idempotent. (The web app also needs an nginx SPA
 fallback — see `docs/RELEASING.md`.)
 
+Then run [`supabase/0023_planning.sql`](../supabase/0023_planning.sql) in a
+**new query**. It adds the **Planning tab** — team chats, tasks (with assignees,
+comments and issue links) and to-do lists — plus a `notifications` table, all
+**members-only**, an auto-archive trigger (closing an issue archives its linked
+tasks/to-do lists), and **realtime** on the chat-messages and notifications
+tables (so chats update live). Also idempotent.
+
+Last, run [`supabase/0024_web_auto_publish.sql`](../supabase/0024_web_auto_publish.sql)
+in a **new query**. It adds the `web_auto_publish` toggle used to re-publish a
+web deployment automatically after each deploy. Also idempotent.
+
+> **v3.4 adds two migrations.** Run `0023` and `0024` (above) once, after
+> `0001`–`0022`. `0023` turns on realtime for the planning chats; if your project
+> has realtime disabled, chats still work but update on refresh instead of live.
+
 ## 3b. Deploy the storage function (cloud commits)
 
 Feather stores commit snapshots and rollbacks as files on a dedicated

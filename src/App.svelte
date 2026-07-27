@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { openUrl } from "@tauri-apps/plugin-opener";
   import { onMount } from "svelte";
   import { auth, initAuth, signOut } from "./lib/auth.svelte";
   import { listTeams } from "./lib/cloud";
@@ -11,6 +12,20 @@
 
   onMount(() => {
     void initAuth();
+
+    // In the Tauri webview, clicking an http(s) link (e.g. in a Markdown README
+    // or issue) would navigate the app window and break it. Intercept those and
+    // open them in the system browser instead.
+    function onLinkClick(event: MouseEvent) {
+      const anchor = (event.target as HTMLElement)?.closest?.("a");
+      const href = anchor?.getAttribute("href") ?? "";
+      if (/^https?:\/\//i.test(href)) {
+        event.preventDefault();
+        void openUrl(href).catch(() => {});
+      }
+    }
+    document.addEventListener("click", onLinkClick);
+    return () => document.removeEventListener("click", onLinkClick);
   });
 
   // On restart only the team id is persisted. Resolve its name and, at the

@@ -1,5 +1,6 @@
 <script lang="ts">
   import Logo from "./Logo.svelte";
+  import NotificationBell from "./NotificationBell.svelte";
 
   let {
     userEmail,
@@ -8,6 +9,8 @@
     onOpenTeam,
     onSwitchTeam,
     onLogout,
+    onOpenProject,
+    onOpenSettings,
   }: {
     userEmail: string;
     teamName: string;
@@ -15,6 +18,8 @@
     onOpenTeam: () => void;
     onSwitchTeam: () => void;
     onLogout: () => void;
+    onOpenProject?: (projectId: string) => void;
+    onOpenSettings?: () => void;
   } = $props();
 
   let menuOpen = $state(false);
@@ -27,6 +32,7 @@
   </div>
 
   <div class="right">
+    <NotificationBell onOpen={onOpenProject} />
     <div class="account">
       <button class="team" onclick={() => (menuOpen = !menuOpen)} title={userEmail}>
         <span class="team-name">{teamName}</span>
@@ -62,6 +68,15 @@
             }}
           >
             Switch team
+          </button>
+          <button
+            class="menu-item"
+            onclick={() => {
+              menuOpen = false;
+              onOpenSettings?.();
+            }}
+          >
+            Settings
           </button>
           <button
             class="menu-item"

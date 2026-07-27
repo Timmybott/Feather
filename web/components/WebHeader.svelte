@@ -2,6 +2,7 @@
   import { auth, signOut } from "../../src/lib/auth.svelte";
   import { getProfile, listUserTeams, type Team, type UserProfile } from "../../src/lib/cloud";
   import Logo from "../../src/lib/components/Logo.svelte";
+  import NotificationBell from "../../src/lib/components/NotificationBell.svelte";
   import { navigate } from "../lib/router.svelte";
 
   let { query = "" }: { query?: string } = $props();
@@ -76,6 +77,7 @@
 
   <div class="right">
     {#if auth.user}
+      <NotificationBell onOpen={(projectId) => navigate(`/project/${projectId}`)} />
       <div class="account">
         <button class="avatar-btn" onclick={() => (menuOpen = !menuOpen)} title="Your account" aria-haspopup="menu" aria-expanded={menuOpen}>
           {#if profile?.avatar_url && !avatarBroken}
