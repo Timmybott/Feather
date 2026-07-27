@@ -6,6 +6,49 @@ All notable changes to Feather are documented here. The format follows
 
 ## [Unreleased]
 
+The following are planned for the next release and **not yet shipped**: putting
+a project online via **Web Deployments**, making **"Open in desktop app"** open
+the app (a `feather://` deep link), fully hash-free **readable URLs**, a
+project **Planning/Organisation** tab (chats, tasks, to-do lists), and creating
+Pterodactyl servers from inside Feather.
+
+## [3.3.0] — 2026-07-27
+
+Web fetch fix, server-type detection, team deletion and a Settings menu.
+
+> **Redeploy the Edge Functions** (this is what finally fixes the web
+> "Failed to fetch"): `supabase functions deploy feather-panel feather-storage`.
+> New: `supabase functions deploy delete-account`. Run migration
+> `supabase/0020_delete_team.sql`. See [docs/CLOUD-SETUP.md](docs/CLOUD-SETUP.md).
+
+### Fixed
+
+- **The web app's files, commit diffs and console now actually load.** The v3.2
+  CORS headers weren't enough on their own: Supabase's gateway verifies the JWT
+  by default and **rejects the browser's CORS preflight** (an OPTIONS request
+  carries no `Authorization` header) with a 401 that has no CORS headers, so the
+  browser reported *"Failed to fetch"*. A new `supabase/config.toml` sets
+  `verify_jwt = false` for both functions (they do their own auth), so the
+  preflight and the request reach the function. **Redeploy both** to apply.
+- **The Edge Function source no longer shows editor "red squiggles".** The
+  `supabase-js` import moved from the `esm.sh` URL to the modern
+  `npm:@supabase/supabase-js@2` specifier, which resolves cleanly.
+
+### Added
+
+- **Server-type detection.** Feather infers a server's kind (Website, Node.js,
+  Python, Go, Minecraft, FiveM/GTA V, database, …) from its Docker image and
+  shows it as a chip on each **Panels-tab** tile and on the **web project page**.
+  A shared classifier also marks web-capable kinds for the upcoming Web
+  Deployments.
+- **Delete a team.** The team owner can permanently delete a team (and all its
+  projects, panels, deploys, commits and issues) from the team page's Danger
+  zone — migration `0020`, an owner-only `delete_team()` function.
+- **A web Settings menu.** Reached from the header avatar (**Settings**): the app
+  version with a "latest release" check against GitHub, a browser-notifications
+  toggle, sign out, and **account deletion** (a new `delete-account` Edge
+  Function removes every team you own, then your login).
+
 ## [3.2.0] — 2026-07-26
 
 Web-app fixes and a much richer homepage.
@@ -676,6 +719,7 @@ First feature-complete version — everything from the v1 specification.
 - **Easy install** — Windows NSIS installer and a one-line Linux installer
   (`install.sh`, .deb on apt-based distros, AppImage elsewhere).
 
+[3.3.0]: https://github.com/Timmybott/Feather/releases/tag/v3.3.0
 [3.2.0]: https://github.com/Timmybott/Feather/releases/tag/v3.2.0
 [3.1.0]: https://github.com/Timmybott/Feather/releases/tag/v3.1.0
 [3.0.0]: https://github.com/Timmybott/Feather/releases/tag/v3.0.0

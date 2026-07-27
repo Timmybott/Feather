@@ -445,4 +445,12 @@ Der Web-Build (`npm run web:build`) und `npm run web:check` laufen zusätzlich z
 - **Account-Menü im Web-Header:** Avatar (Initialen-Fallback) mit „Your profile", „Your teams"-Liste und „Log out" statt nur „Your profile".
 - **„Open in desktop app":** Projektseite bietet einen `feather://`-Deep-Link für Committen/Deployen (was das Web nicht kann).
 
-**Neue Meilensteine (v3.0):** M50 (`feather-panel` Edge Function) · M51 (`supabase/0019` öffentliches anon-Lesen) · M52 (Web-SPA: Homepage, Suche, Ansichts-Seiten, Konsole) · M53 (CI-Webroot-Deploy, Version 3.0.0 + Docs) · M54 (Web-Deploy-Fix · 3.1.0) · M55 (Web-CORS-Fix, Mitglieder-Gating, lebendige Homepage, Account-Menü · 3.2.0) — abgeschlossen.
+**Web-Fetch-Fix, Server-Typ, Team-Löschung, Settings (v3.3, M56–M61).**
+- **„Failed to fetch" endgültig behoben:** Die v3.2-CORS-Header allein reichten nicht — Supabases Gateway prüft standardmäßig das JWT und lehnt den Browser-CORS-**Preflight** (OPTIONS ohne Authorization) mit 401 ohne CORS-Header ab. Neue `supabase/config.toml` setzt `verify_jwt = false` für alle Funktionen (sie authentifizieren selbst); **beide Funktionen neu deployen**. Zusätzlich Import auf `npm:@supabase/supabase-js@2` umgestellt (klärt die roten Editor-Squiggles).
+- **Server-Typ-Erkennung (M58):** Aus dem Docker-Image abgeleiteter Server-Typ (Website/Node.js/Python/Go/Minecraft/FiveM/DB/…) via gemeinsamem `src/lib/serverType.ts`; angezeigt als Chip im Panels-Tab (ServerCard) und auf der Web-Projektseite. `docker_image` neu im Core-`Server` + TS-Typ; `feather-panel` `details`-Action. `webCapable`-Flag für kommende Web Deployments.
+- **Team löschen (M61):** `supabase/0020` mit owner-only `delete_team()` (Cascade über alle team-scoped Tabellen); `cloud.deleteTeam()` + Danger-Zone in der (geteilten) `TeamProfile`-Bearbeitung.
+- **Web-Settings (M61):** Über das Avatar-Menü erreichbar (`/settings`): App-Version + Update-Abgleich gegen das neueste GitHub-Release, Benachrichtigungs-Toggle (localStorage), Abmelden, Account-Löschung via neuer `delete-account` Edge Function (Service-Role: löscht besessene Teams, dann den Auth-User).
+
+**Noch offen (nächster Batch):** M57 lesbare/hashfreie URLs, M59 Web Deployments (`/webdeployment/<slug>/`), M60 `feather://` Deep-Link („Open in desktop app"), Planning/Organisations-Tab, In-Feather-Servererstellung.
+
+**Neue Meilensteine (v3.0):** M50 (`feather-panel` Edge Function) · M51 (`supabase/0019` öffentliches anon-Lesen) · M52 (Web-SPA: Homepage, Suche, Ansichts-Seiten, Konsole) · M53 (CI-Webroot-Deploy, Version 3.0.0 + Docs) · M54 (Web-Deploy-Fix · 3.1.0) · M55 (Web-CORS-Fix, Mitglieder-Gating, lebendige Homepage, Account-Menü · 3.2.0) · M56/M58/M61 (Web-Fetch-Fix, Server-Typ, Team-Löschung, Settings · 3.3.0) — abgeschlossen.
