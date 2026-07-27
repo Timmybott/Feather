@@ -10,6 +10,7 @@
     onSwitchTeam,
     onLogout,
     onOpenProject,
+    onOpenSettings,
   }: {
     userEmail: string;
     teamName: string;
@@ -18,6 +19,7 @@
     onSwitchTeam: () => void;
     onLogout: () => void;
     onOpenProject?: (projectId: string) => void;
+    onOpenSettings?: () => void;
   } = $props();
 
   let menuOpen = $state(false);
@@ -66,6 +68,15 @@
             }}
           >
             Switch team
+          </button>
+          <button
+            class="menu-item"
+            onclick={() => {
+              menuOpen = false;
+              onOpenSettings?.();
+            }}
+          >
+            Settings
           </button>
           <button
             class="menu-item"
