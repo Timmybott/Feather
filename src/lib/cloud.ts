@@ -97,6 +97,17 @@ export async function updateTeam(
   return data as Team;
 }
 
+/**
+ * Delete a whole team and everything under it (owner-only; enforced in the
+ * `delete_team` function). Every team-scoped table cascades from teams(id), so
+ * members, panels, projects, deploys, commits and issues go with it. Requires
+ * migration `0020`.
+ */
+export async function deleteTeam(teamId: string): Promise<void> {
+  const { error } = await supabase.rpc("delete_team", { p_team: teamId });
+  if (error) throw new Error(error.message);
+}
+
 // --- Panels (Pterodactyl connections, shared in the team) ------------------
 //
 // The API key is never selected from this table — the `api_key_encrypted`

@@ -39,7 +39,7 @@
     {/key}
   {:else if route.page === "team"}
     {#key route.id}
-      <TeamProfile teamId={route.id} onBack={back} onOpenProfile={openProfile} onOpenProject={openProject} />
+      <TeamProfile teamId={route.id} onBack={back} onDeleted={() => navigate("/")} onOpenProfile={openProfile} onOpenProject={openProject} />
     {/key}
   {:else if route.page === "project"}
     {#key route.id}

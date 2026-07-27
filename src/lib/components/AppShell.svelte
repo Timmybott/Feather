@@ -356,6 +356,7 @@
         teamId={current.teamId}
         onBack={back}
         onUpdated={onTeamUpdated}
+        onDeleted={() => window.location.reload()}
         onOpenProfile={openProfile}
         onOpenProject={goToProject}
       />
