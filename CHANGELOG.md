@@ -6,9 +6,47 @@ All notable changes to Feather are documented here. The format follows
 
 ## [Unreleased]
 
-The following are planned for the next release and **not yet shipped**: a
-project **Planning/Organisation** tab (chats, tasks, to-do lists), and creating
-Pterodactyl servers from inside Feather.
+## [3.4.0] — 2026-07-27
+
+A Planning tab, a guided server flow, and a much fuller web app.
+
+> **New database migrations.** Run `supabase/0023_planning.sql` and
+> `supabase/0024_web_auto_publish.sql` once in the Supabase SQL editor (after
+> 0001–0022). `0023` also enables realtime on the planning messages and
+> notifications tables. See [docs/CLOUD-SETUP.md](docs/CLOUD-SETUP.md).
+
+### Added
+
+- **Planning & Organisation tab** (per project, team-members only):
+  - **Chats** — admins create self-named chats; messages are **live** (Supabase
+    Realtime). Tag a teammate with `@username` (they get a notification) or a
+    file with `#path` (jumps to the Files tab).
+  - **Tasks** — anyone creates them, assigns members, links an **open issue**,
+    and comments; done/archived states.
+  - **To-do lists** — shared checklists, optionally linked to an issue.
+  - **Auto-archive** — closing an issue archives the tasks and to-do lists linked
+    to it (restored on reopen).
+- **Notification bell** in both headers — unread mentions and task assignments,
+  live, click to open the project.
+- **Guided "New server"** — Pterodactyl's client API can't create servers, so
+  Feather plans the spec (runtime, RAM/disk/CPU, location), gives a copyable
+  summary and a jump to the panel, then flows into the import.
+- **Web app parity.** The web project page now matches the desktop: four stat
+  tiles (open issues, deploys, last deploy, current commit / not deployed), a
+  Recent Activity timeline, a metadata sidebar, and a **members-only Settings
+  tab** (edit name/description/logo; manage Web Deployments).
+- **Web Deployments: auto re-publish on deploy** — a per-project toggle (off by
+  default, migration `0024`) in both desktop and web settings; when on, Feather
+  re-publishes the live site after each deploy.
+
+### Fixed
+
+- **Settings are now in the desktop app too** (they were web-only): a Settings
+  dialog from the header account menu — version, check for updates, notifications
+  toggle, delete account.
+- **Links open in the browser from the desktop app.** Clicking an `http(s)` link
+  in a Markdown README/issue used to do nothing (or navigate the app window); it
+  now opens in the system browser (Tauri opener plugin).
 
 ## [3.3.0] — 2026-07-27
 
@@ -739,6 +777,7 @@ First feature-complete version — everything from the v1 specification.
 - **Easy install** — Windows NSIS installer and a one-line Linux installer
   (`install.sh`, .deb on apt-based distros, AppImage elsewhere).
 
+[3.4.0]: https://github.com/Timmybott/Feather/releases/tag/v3.4.0
 [3.3.0]: https://github.com/Timmybott/Feather/releases/tag/v3.3.0
 [3.2.0]: https://github.com/Timmybott/Feather/releases/tag/v3.2.0
 [3.1.0]: https://github.com/Timmybott/Feather/releases/tag/v3.1.0

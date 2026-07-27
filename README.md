@@ -6,7 +6,7 @@ Feather splits cleanly in two: **Panels** is where you run your servers (power, 
 
 > **Status:** v3.3 — **Feather on the web**, now with the web file/diff/console fetch **actually working** (the Edge Functions needed `verify_jwt` off so the browser's CORS preflight isn't rejected — redeploy them), plus **server-type detection** (Website/Node.js/Python/game/… shown on the Panels tab and the web project page), **team deletion** (owner-only), and a web **Settings menu** (version + update check, notifications toggle, account deletion). It builds on v3.2's browser version that looks and behaves exactly like the desktop app but is view-focused — browse and **search** teams, users and projects, read Overviews, issues and full history, edit files and issues online, watch the live console — with a **live homepage** (OS-aware download, an always-current changelog, stats and contributors from GitHub), an **account menu**, **GitHub-style search**, and public browsing **without an account**; it **auto-deploys to the server web root on every release**. Committing, deploying and local folders stay on the desktop.
 >
-> _In progress for the next release:_ a project **Planning** tab, and **creating servers** from inside Feather. ("Open in desktop app", **Web Deployments**, and hash-free **readable URLs** now work.) It builds on v2.6's workflow & polish (named commits with per-commit diffs, full-page views with a real Back button, file-uploaded avatars/logos, a team-creation wizard, statistics), v2.5's delta deploy model (a **commit** records only its *delta*, a **deploy** ships exactly the accumulated commits, teammates **auto-sync**, **rollback** restores a past deploy) and v2.4's project experience (per-file line diffs, edit-on-server, profile/team cross-links). Commit deltas and deploy snapshots live on a dedicated storage backend reached only through a key-holding Edge Function.
+> **v3.4 adds** a per-project **Planning tab** (team chats with `@`/`#` tags + live messages, task assignment linked to issues, shared to-do lists, and auto-archive on issue close), a **notification bell**, a guided **New server** flow, a much **fuller web app** (the web project page now matches the desktop — stats, activity, sidebar and a Settings tab), **auto re-publish** for Web Deployments, plus fixes: **Settings in the desktop app** too and **links opening in the system browser**. It builds on v2.6's workflow & polish (named commits with per-commit diffs, full-page views with a real Back button, file-uploaded avatars/logos, a team-creation wizard, statistics), v2.5's delta deploy model (a **commit** records only its *delta*, a **deploy** ships exactly the accumulated commits, teammates **auto-sync**, **rollback** restores a past deploy) and v2.4's project experience (per-file line diffs, edit-on-server, profile/team cross-links). Commit deltas and deploy snapshots live on a dedicated storage backend reached only through a key-holding Edge Function.
 
 ---
 
@@ -32,6 +32,7 @@ Feather splits cleanly in two: **Panels** is where you run your servers (power, 
   - [Rollback](#rollback)
   - [Files](#files)
   - [Issues (linked to deploys & commits)](#issues-linked-to-deploys--commits)
+  - [Planning & Organisation](#planning--organisation)
   - [Markdown planning & checklists](#markdown-planning--checklists)
   - [Deleting a project](#deleting-a-project)
   - [Multi-device sync](#multi-device-sync)
@@ -281,6 +282,16 @@ Issues connect to the deploy flow:
 
 Everything is shared, and comments are attributed to their author.
 
+### Planning & Organisation
+
+Each project has a **Planning** tab — the team's private workspace (members only), with three sections:
+
+- **Chats** — create any number of self-named chats (**admins** create them; everyone posts). Messages are **live** (updated in real time). Tag a teammate with **`@username`** and they get a **notification**; tag a file with **`#path`** and it jumps to the Files tab. A bell in the header shows your unread mentions and task assignments.
+- **Tasks** — anyone creates a task, assigns one or more **members**, links an **open issue**, and comments on it; mark tasks done. Assigning someone notifies them.
+- **To-do lists** — shared checklists, optionally linked to an issue.
+
+When an **issue is closed**, the tasks and to-do lists linked to it are **auto-archived** (and restored if you reopen it), so finished work moves out of the way. It's the same on the desktop and the web.
+
 ### Markdown planning & checklists
 
 Project descriptions, profile READMEs, issue bodies and comments render **Markdown** — headings, bold/italic, lists, inline code and code blocks, blockquotes, links, and GitHub-style **task lists**. Checklists in a project's description are **interactive**: tick `- [ ]` items right on the Overview and the change saves for the whole team, turning the description into a live planning board.
@@ -427,6 +438,8 @@ The cloud schema is a set of ordered SQL files in [`supabase/`](supabase/), appl
 | `0020_delete_team.sql` | Owner-only `delete_team()` — remove a team and all its data |
 | `0021_web_deploy.sql` | `web_deploy` / `web_slug` on projects + member-only `set_web_deploy()` for Web Deployments |
 | `0022_slugs.sql` | Unique `slug` on teams and projects (auto-generated) for readable web URLs |
+| `0023_planning.sql` | Planning tab: chats, tasks, to-do lists + a notifications table (members-only, realtime, auto-archive trigger) |
+| `0024_web_auto_publish.sql` | `web_auto_publish` toggle — re-publish a web deployment after each deploy |
 
 All are idempotent — safe to re-run. Cloud commits also need the [`feather-storage`](supabase/functions/feather-storage/README.md) function deployed; the [web app](#feather-on-the-web) additionally needs the [`feather-panel`](supabase/functions/feather-panel/README.md) and `delete-account` functions deployed. **All Edge Functions must be deployed with gateway JWT verification off** (`supabase/config.toml` sets `verify_jwt = false`) — they authenticate callers themselves, and leaving it on makes the browser's CORS preflight fail with *"Failed to fetch"*.
 
