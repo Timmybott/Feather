@@ -7,8 +7,7 @@ All notable changes to Feather are documented here. The format follows
 ## [Unreleased]
 
 The following are planned for the next release and **not yet shipped**: putting
-a project online via **Web Deployments**, making **"Open in desktop app"** open
-the app (a `feather://` deep link), fully hash-free **readable URLs**, a
+a project online via **Web Deployments**, fully hash-free **readable URLs**, a
 project **Planning/Organisation** tab (chats, tasks, to-do lists), and creating
 Pterodactyl servers from inside Feather.
 
@@ -48,6 +47,13 @@ Web fetch fix, server-type detection, team deletion and a Settings menu.
   version with a "latest release" check against GitHub, a browser-notifications
   toggle, sign out, and **account deletion** (a new `delete-account` Edge
   Function removes every team you own, then your login).
+- **"Open in desktop app" now works.** The desktop app registers the
+  `feather://` URL scheme (Tauri deep-link + single-instance plugins), so the web
+  app's "Open in desktop app" button hands off to the installed app and opens the
+  right page — `feather://project/<id>`, `feather://team/<id>`,
+  `feather://user/<id>` — focusing the running window instead of launching a
+  second one. (Effective once you're on a build that includes this; the browser
+  side already emitted these links.)
 
 ## [3.2.0] — 2026-07-26
 

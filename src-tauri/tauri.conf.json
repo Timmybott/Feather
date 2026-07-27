@@ -41,6 +41,11 @@
       "endpoints": [
         "https://github.com/Timmybott/Feather/releases/latest/download/latest.json"
       ]
+    },
+    "deep-link": {
+      "desktop": {
+        "schemes": ["feather"]
+      }
     }
   }
 }

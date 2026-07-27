@@ -46,6 +46,18 @@ export function listServers(panelId: string): Promise<Server[]> {
   return invoke<Server[]>("list_servers", { panelId });
 }
 
+// --- Deep links (feather://…) -----------------------------------------------
+
+/** The URL the app was cold-started with, consumed once (null if none). */
+export function takePendingDeepLink(): Promise<string | null> {
+  return invoke<string | null>("take_pending_deep_link");
+}
+
+/** Listen for feather:// URLs opened while the app is running. */
+export function onDeepLink(handler: (url: string) => void): Promise<UnlistenFn> {
+  return listen<string>("deep-link", (event) => handler(event.payload));
+}
+
 export function serverResources(panelId: string, identifier: string): Promise<ServerStats> {
   return invoke<ServerStats>("server_resources", { panelId, identifier });
 }
