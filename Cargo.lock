@@ -1129,7 +1129,7 @@ dependencies = [
 
 [[package]]
 name = "feather"
-version = "3.4.0"
+version = "3.4.1"
 dependencies = [
  "feather-core",
  "serde",
@@ -1148,7 +1148,7 @@ dependencies = [
 
 [[package]]
 name = "feather-core"
-version = "3.4.0"
+version = "3.4.1"
 dependencies = [
  "flate2",
  "futures-util",
@@ -2395,7 +2395,7 @@ dependencies = [
 
 [[package]]
 name = "mock-panel"
-version = "3.4.0"
+version = "3.4.1"
 dependencies = [
  "axum",
  "flate2",

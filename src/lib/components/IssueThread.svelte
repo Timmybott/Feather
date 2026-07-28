@@ -23,6 +23,7 @@
     canInteract = true,
     onBack,
     onChanged,
+    onOpenProfile,
   }: {
     issue: Issue;
     projectId: string;
@@ -33,6 +34,8 @@
     canInteract?: boolean;
     onBack: () => void;
     onChanged: () => void;
+    /** Open a user's profile (author names are clickable when provided). */
+    onOpenProfile?: (userId: string) => void;
   } = $props();
 
   let bundles = $state<DeployBundle[]>([]);
@@ -237,7 +240,11 @@
 
   <article class="comment original">
     <div class="c-head">
-      <span class="author">{issue.author_name ?? "someone"}</span>
+      {#if issue.created_by && onOpenProfile}
+        <button class="author link" onclick={() => onOpenProfile(issue.created_by!)}>{issue.author_name ?? "someone"}</button>
+      {:else}
+        <span class="author">{issue.author_name ?? "someone"}</span>
+      {/if}
       <span class="muted">opened this · {when(issue.created_at)}</span>
     </div>
     {#if issue.body.trim() !== ""}
@@ -253,7 +260,11 @@
     {#each comments as c (c.id)}
       <article class="comment">
         <div class="c-head">
-          <span class="author">{c.author_name ?? "someone"}</span>
+          {#if c.created_by && onOpenProfile}
+            <button class="author link" onclick={() => onOpenProfile(c.created_by!)}>{c.author_name ?? "someone"}</button>
+          {:else}
+            <span class="author">{c.author_name ?? "someone"}</span>
+          {/if}
           <span class="muted">{when(c.created_at)}</span>
         </div>
         <Markdown source={c.body} />
@@ -392,6 +403,21 @@
 
   .author {
     font-weight: 600;
+  }
+
+  .author.link {
+    background: transparent;
+    border: none;
+    padding: 0;
+    font: inherit;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+  }
+
+  .author.link:hover {
+    color: var(--accent);
+    text-decoration: underline;
   }
 
   form {

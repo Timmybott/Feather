@@ -82,6 +82,7 @@
     {projectId}
     {canWrite}
     {canInteract}
+    {onOpenProfile}
     onBack={() => (selectedId = null)}
     onChanged={load}
   />

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { createServerFolder, deleteServerFiles, listServerFiles } from "../api";
   import { formatBytes } from "../format";
   import type { FileEntry } from "../types";
@@ -8,7 +9,14 @@
     panelId,
     identifier,
     canWrite = true,
-  }: { panelId: string; identifier: string; canWrite?: boolean } = $props();
+    openPath = null,
+  }: {
+    panelId: string;
+    identifier: string;
+    canWrite?: boolean;
+    /** A file path to jump straight to (from a chat #file mention). */
+    openPath?: string | null;
+  } = $props();
 
   let segments = $state<string[]>([]);
   let entries = $state<FileEntry[]>([]);
@@ -18,6 +26,8 @@
   let armedDelete = $state<string | null>(null);
   let armTimer: ReturnType<typeof setTimeout> | undefined;
   let editing = $state<{ path: string; size: number } | null>(null);
+  // Filename to auto-open once the target directory's listing loads.
+  let pendingOpen = $state<string | null>(null);
 
   const currentDir = $derived("/" + segments.join("/"));
 
@@ -26,12 +36,41 @@
     editing = { path: `${dir}/${entry.name}`, size: entry.size };
   }
 
+  // Jump to a #file mention: split the path into its directory and filename,
+  // navigate there, and remember the file to open once the listing arrives.
+  function goToPath(path: string) {
+    const parts = path.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
+    if (parts.length === 0) return;
+    pendingOpen = parts[parts.length - 1];
+    segments = parts.slice(0, -1);
+    // If we're already in the target directory, load() won't re-fire on
+    // currentDir — open from the entries we already have.
+    tryOpenPending();
+  }
+
+  function tryOpenPending() {
+    if (!pendingOpen) return;
+    const hit = entries.find((e) => e.is_file && e.name === pendingOpen);
+    if (hit) {
+      pendingOpen = null;
+      openFile(hit);
+    }
+  }
+
+  // A new #file mention target: navigate to it. Only depend on openPath —
+  // goToPath reads entries, which must not re-trigger this effect.
+  $effect(() => {
+    const p = openPath;
+    if (p) untrack(() => goToPath(p));
+  });
+
   async function load() {
     loading = true;
     error = null;
     armedDelete = null;
     try {
       entries = await listServerFiles(panelId, identifier, currentDir);
+      tryOpenPending();
     } catch (e) {
       error = String(e);
       entries = [];

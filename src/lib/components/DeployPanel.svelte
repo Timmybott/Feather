@@ -13,6 +13,7 @@
   import MarkdownEditor from "./MarkdownEditor.svelte";
   import {
     anonKey,
+    closeDeployedIssues,
     currentBundle,
     getBundleManifest,
     getCommitManifest,
@@ -90,6 +91,7 @@
     summary: string | null;
     description: string | null;
     manifest: Manifest;
+    bundleId: string;
   } | null = null;
   // The manifest of the deploy being rolled back to, used to reset the server
   // baseline once the rollback lands.
@@ -231,6 +233,7 @@
         // diff resets and a fresh Deploy opens. Best effort — never fails the run.
         if (kind === "deploy" && pendingDeploy) {
           await releaseCurrentBundle(
+            pendingDeploy.bundleId,
             pendingDeploy.manifest,
             pendingDeploy.summary,
             pendingDeploy.description,
@@ -263,6 +266,7 @@
    * already live, so bundle bookkeeping must never surface as a deploy failure.
    */
   async function releaseCurrentBundle(
+    bundleId: string,
     manifest: Manifest,
     message: string | null,
     description: string | null,
@@ -270,6 +274,13 @@
     try {
       await currentBundle(project.id); // ensure a pending bundle exists to release
       await releaseBundle(project.id, Object.keys(manifest).length, message, manifest, description);
+      // Close any open issues that were pinned to a commit in this shipped
+      // bundle. Best effort — never fail the deploy over issue bookkeeping.
+      try {
+        await closeDeployedIssues(bundleId);
+      } catch (e) {
+        console.error("issue auto-close skipped:", e);
+      }
       cloudRefresh += 1;
     } catch (e) {
       console.error("bundle release skipped:", e);
@@ -298,6 +309,7 @@
         summary: deployName.trim() || stored[stored.length - 1].message,
         description: deployDescription.trim() || null,
         manifest: newest.manifest,
+        bundleId: b.id,
       };
       deployName = "";
       deployDescription = "";
