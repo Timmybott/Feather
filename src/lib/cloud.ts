@@ -787,6 +787,17 @@ export async function assignIssueCommit(
   if (error) throw new Error(error.message);
 }
 
+/**
+ * Close every open issue whose fixing commit belongs to `bundleId`. Called
+ * after that bundle is deployed (released) so issues pinned to shipped commits
+ * close themselves. Returns how many issues were closed.
+ */
+export async function closeDeployedIssues(bundleId: string): Promise<number> {
+  const { data, error } = await supabase.rpc("close_deployed_issues", { p_bundle: bundleId });
+  if (error) throw new Error(error.message);
+  return (data as number | null) ?? 0;
+}
+
 export async function createIssue(
   projectId: string,
   title: string,

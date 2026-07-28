@@ -74,6 +74,11 @@ export interface TodoItem {
   created_at: string;
 }
 
+export interface TodoListAssignee {
+  list_id: string;
+  user_id: string;
+}
+
 export interface Notification {
   id: string;
   user_id: string;
@@ -364,6 +369,45 @@ export async function toggleTodoItem(itemId: string, done: boolean): Promise<voi
 
 export async function deleteTodoItem(itemId: string): Promise<void> {
   const { error } = await supabase.from("planning_todo_items").delete().eq("id", itemId);
+  if (error) throw new Error(error.message);
+}
+
+// --- To-do list assignees --------------------------------------------------
+
+export async function listTodoListAssignees(projectId: string): Promise<TodoListAssignee[]> {
+  const { data, error } = await supabase
+    .from("planning_todo_list_assignees")
+    .select("list_id, user_id, planning_todo_lists!inner(project_id)")
+    .eq("planning_todo_lists.project_id", projectId);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => ({ list_id: r.list_id as string, user_id: r.user_id as string }));
+}
+
+/** Assign a member to a to-do list and notify them. */
+export async function assignTodoList(list: TodoList, userId: string): Promise<void> {
+  const { error } = await supabase
+    .from("planning_todo_list_assignees")
+    .insert({ list_id: list.id, user_id: userId, team_id: list.team_id });
+  if (error && !/duplicate key/i.test(error.message)) throw new Error(error.message);
+  const me = await uid();
+  if (userId !== me) {
+    await supabase.from("notifications").insert({
+      user_id: userId,
+      team_id: list.team_id,
+      project_id: list.project_id,
+      kind: "todo_assigned",
+      body: `You were assigned the to-do list “${list.title}”`,
+      link: list.project_id,
+    });
+  }
+}
+
+export async function unassignTodoList(listId: string, userId: string): Promise<void> {
+  const { error } = await supabase
+    .from("planning_todo_list_assignees")
+    .delete()
+    .eq("list_id", listId)
+    .eq("user_id", userId);
   if (error) throw new Error(error.message);
 }
 

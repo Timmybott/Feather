@@ -6,6 +6,44 @@ All notable changes to Feather are documented here. The format follows
 
 ## [Unreleased]
 
+## [3.4.1] — 2026-07-28
+
+Planning polish: clickable people everywhere, avatars, direct file links,
+assignable to-do lists, assignee notifications, and commit → issue auto-close.
+
+> **New database migrations.** Run `supabase/0025_planning_assignees.sql` and
+> `supabase/0026_issue_autoclose.sql` once in the Supabase SQL editor (after
+> 0001–0024). See [docs/CLOUD-SETUP.md](docs/CLOUD-SETUP.md).
+
+### Added
+
+- **Clickable people everywhere.** In chat, a message's sender, its avatar and
+  every `@mention` open that person's profile — the same for **task comments**
+  and **issue comments** (author names are now links). Assignee avatars are
+  clickable too.
+- **Profile pictures in chat** (and in comments/assignee rows) — the member's
+  avatar is shown, falling back to their initial.
+- **`#file` mentions jump to the file.** Clicking a file mention now opens that
+  exact file in the Files tab instead of just switching to the tab.
+- **Completed sections.** Both **Tasks** and **To-dos** now have a collapsible
+  "completed" area — done tasks and fully-checked to-do lists move there instead
+  of cluttering the active list.
+- **Assignable to-do lists.** To-do lists can be assigned to members, just like
+  tasks (with a notification when you're assigned).
+- **Assignee notifications.** If you're assigned to a task or a to-do list you're
+  notified when a comment is posted or a change is made to it
+  (migration `0025`, database triggers).
+- **Commit → issue → auto-close.** When committing you can tick one or more open
+  issues to "close on deploy"; the commit is pinned to each. When that commit
+  ships from **Current Deploy**, those issues close themselves — which also
+  archives the tasks/to-do lists linked to them (migration `0026`).
+
+### Changed
+
+- **To-do lists: no more Archive button** — only Delete remains. Lists still
+  auto-archive when their linked issue closes; that "archived" area stays as a
+  collapsible section.
+
 ## [3.4.0] — 2026-07-27
 
 A Planning tab, a guided server flow, and a much fuller web app.

@@ -81,6 +81,8 @@
 
   type Tab = "overview" | "issues" | "planning" | "deploy" | "files" | "settings";
   let tab = $state<Tab>("overview");
+  // A #file mention picks the Files tab and this path; the browser jumps to it.
+  let openFilePath = $state<string | null>(null);
 
   // Is the current user an admin/owner of this project's team? (For chat creation.)
   const isTeamAdmin = $derived(
@@ -460,7 +462,7 @@
       <button class:active={tab === "planning"} onclick={() => (tab = "planning")}>Planning</button>
     {/if}
     <button class:active={tab === "deploy"} onclick={() => (tab = "deploy")}>{canWrite ? "Deploy" : "History"}</button>
-    <button class:active={tab === "files"} onclick={() => (tab = "files")}>Files</button>
+    <button class:active={tab === "files"} onclick={() => { openFilePath = null; tab = "files"; }}>Files</button>
     {#if canWrite}
       <button class:active={tab === "settings"} onclick={openSettings}>Settings</button>
     {/if}
@@ -616,13 +618,14 @@
       currentUserId={auth.user?.id ?? null}
       isMember={canInteract}
       isAdmin={isTeamAdmin}
-      onOpenFile={() => (tab = "files")}
+      onOpenFile={(path) => { openFilePath = path; tab = "files"; }}
+      {onOpenProfile}
     />
   {:else if tab === "deploy"}
     <DeployPanel {project} {localPath} {autoImport} {canWrite} onImported={() => (autoImport = false)} onDeployed={autoPublishAfterDeploy} />
   {:else if tab === "files"}
     {#if project.panel_id && project.server_identifier}
-      <FileBrowser panelId={project.panel_id} identifier={project.server_identifier} {canWrite} />
+      <FileBrowser panelId={project.panel_id} identifier={project.server_identifier} {canWrite} openPath={openFilePath} />
     {:else}
       <p class="muted center empty">This project isn't linked to a server, so there are no files to browse.</p>
     {/if}

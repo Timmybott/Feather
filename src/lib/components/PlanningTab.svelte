@@ -4,6 +4,7 @@
   import {
     addTodoItem,
     assignTask,
+    assignTodoList,
     commentTask,
     createChat,
     createTask,
@@ -18,12 +19,14 @@
     listTaskComments,
     listTasks,
     listTodoItems,
+    listTodoListAssignees,
     listTodoLists,
     postMessage,
     setTodoListArchived,
     subscribeMessages,
     toggleTodoItem,
     unassignTask,
+    unassignTodoList,
     updateTask,
     type PlanningChat,
     type PlanningMessage,
@@ -32,6 +35,7 @@
     type TaskAssignee,
     type TodoItem,
     type TodoList,
+    type TodoListAssignee,
   } from "../planning";
 
   let {
@@ -43,6 +47,7 @@
     isMember = false,
     isAdmin = false,
     onOpenFile,
+    onOpenProfile,
   }: {
     projectId: string;
     teamId: string;
@@ -52,6 +57,7 @@
     isMember?: boolean;
     isAdmin?: boolean;
     onOpenFile?: (path: string) => void;
+    onOpenProfile?: (userId: string) => void;
   } = $props();
 
   type Section = "chats" | "tasks" | "todos";
@@ -67,6 +73,15 @@
   }
   function initial(userId: string | null): string {
     return memberName(userId).charAt(0).toUpperCase();
+  }
+  function avatarUrl(userId: string | null): string | null {
+    return member(userId)?.avatar_url ?? null;
+  }
+  function memberByHandle(handle: string): TeamMember | undefined {
+    return members.find((x) => (x.username ?? "").toLowerCase() === handle.toLowerCase());
+  }
+  function openProfile(userId: string | null | undefined) {
+    if (userId) onOpenProfile?.(userId);
   }
   const openIssues = $derived(issues.filter((i) => i.status === "open"));
   function issueLabel(id: string | null): string | null {
@@ -207,6 +222,7 @@
   let tasks = $state<PlanningTask[]>([]);
   let assignees = $state<TaskAssignee[]>([]);
   let showArchived = $state(false);
+  let showCompletedTasks = $state(false);
   let newTaskTitle = $state("");
   let newTaskIssue = $state<string>("");
   let expandedTask = $state<string | null>(null);
@@ -222,7 +238,8 @@
     }
   }
 
-  const activeTasks = $derived(tasks.filter((t) => t.status !== "archived"));
+  const openTasks = $derived(tasks.filter((t) => t.status === "open"));
+  const doneTasks = $derived(tasks.filter((t) => t.status === "done"));
   const archivedTasks = $derived(tasks.filter((t) => t.status === "archived"));
   function taskAssignees(taskId: string): string[] {
     return assignees.filter((a) => a.task_id === taskId).map((a) => a.user_id);
@@ -310,24 +327,55 @@
   // ==========================================================================
   let todoLists = $state<TodoList[]>([]);
   let todoItems = $state<TodoItem[]>([]);
+  let todoAssignees = $state<TodoListAssignee[]>([]);
   let newListTitle = $state("");
   let newListIssue = $state<string>("");
   let itemDraft = $state<Record<string, string>>({});
+  let assignOpen = $state<Record<string, boolean>>({});
   let showArchivedTodos = $state(false);
+  let showCompletedTodos = $state(false);
   let todoError = $state<string | null>(null);
 
   async function loadTodos() {
     try {
-      [todoLists, todoItems] = await Promise.all([listTodoLists(projectId), listTodoItems(projectId)]);
+      [todoLists, todoItems, todoAssignees] = await Promise.all([
+        listTodoLists(projectId),
+        listTodoItems(projectId),
+        listTodoListAssignees(projectId),
+      ]);
     } catch (e) {
       todoError = String(e instanceof Error ? e.message : e);
     }
   }
 
-  const activeLists = $derived(todoLists.filter((l) => !l.archived));
-  const archivedLists = $derived(todoLists.filter((l) => l.archived));
   function itemsOf(listId: string): TodoItem[] {
     return todoItems.filter((i) => i.list_id === listId);
+  }
+  // A list counts as "completed" once it has items and every item is done.
+  function listCompleted(listId: string): boolean {
+    const items = itemsOf(listId);
+    return items.length > 0 && items.every((i) => i.done);
+  }
+  function assigneesOf(listId: string): string[] {
+    return todoAssignees.filter((a) => a.list_id === listId).map((a) => a.user_id);
+  }
+  const activeLists = $derived(todoLists.filter((l) => !l.archived && !listCompleted(l.id)));
+  const completedLists = $derived(todoLists.filter((l) => !l.archived && listCompleted(l.id)));
+  const archivedLists = $derived(todoLists.filter((l) => l.archived));
+
+  async function toggleListAssignee(list: TodoList, userId: string) {
+    const has = assigneesOf(list.id).includes(userId);
+    try {
+      if (has) {
+        await unassignTodoList(list.id, userId);
+        todoAssignees = todoAssignees.filter((a) => !(a.list_id === list.id && a.user_id === userId));
+      } else {
+        await assignTodoList(list, userId);
+        todoAssignees = [...todoAssignees, { list_id: list.id, user_id: userId }];
+      }
+    } catch (e) {
+      todoError = String(e instanceof Error ? e.message : e);
+    }
   }
 
   async function addList() {
@@ -407,6 +455,8 @@
     messages = [];
     tasks = [];
     todoLists = [];
+    todoItems = [];
+    todoAssignees = [];
   });
   $effect(() => {
     const s = section;
@@ -469,16 +519,18 @@
             <div class="messages">
               {#each messages as m (m.id)}
                 <div class="msg">
-                  <span class="avatar" title={memberName(m.author_id)}>{initial(m.author_id)}</span>
+                  <button class="avatar" title={memberName(m.author_id)} onclick={() => openProfile(m.author_id)}>
+                    {#if avatarUrl(m.author_id)}<img src={avatarUrl(m.author_id)} alt="" />{:else}{initial(m.author_id)}{/if}
+                  </button>
                   <div class="msg-body">
                     <div class="msg-head">
-                      <span class="msg-author">{memberName(m.author_id)}</span>
+                      <button class="msg-author link" onclick={() => openProfile(m.author_id)}>{memberName(m.author_id)}</button>
                       <span class="msg-time muted">{time(m.created_at)}</span>
                     </div>
                     <div class="msg-text">
                       {#each segments(m.body) as seg}
                         {#if seg.kind === "mention"}
-                          <span class="tag mention" class:unknown={!seg.known}>@{seg.value}</span>
+                          <button class="tag mention" class:unknown={!seg.known} disabled={!seg.known} onclick={() => openProfile(memberByHandle(seg.value)?.user_id)} title="View profile">@{seg.value}</button>
                         {:else if seg.kind === "file"}
                           <button class="tag file" onclick={() => onOpenFile?.(seg.value)} title="Open file">#{seg.value}</button>
                         {:else}
@@ -516,7 +568,7 @@
           <button class="primary small" type="submit" disabled={newTaskTitle.trim() === ""}>Add task</button>
         </form>
 
-        {#each activeTasks as t (t.id)}
+        {#snippet taskCard(t: PlanningTask)}
           <div class="task" class:done={t.status === "done"}>
             <div class="task-row">
               <input type="checkbox" checked={t.status === "done"} onchange={() => setTaskStatus(t, t.status === "done" ? "open" : "done")} title="Mark done" />
@@ -525,7 +577,9 @@
                 {#if issueLabel(t.issue_id)}<span class="tag issue" title={issueLabel(t.issue_id)}>#{issues.find((i) => i.id === t.issue_id)?.number}</span>{/if}
                 <span class="assignee-avatars">
                   {#each taskAssignees(t.id) as uid (uid)}
-                    <span class="avatar tiny" title={memberName(uid)}>{initial(uid)}</span>
+                    <button class="avatar tiny" title={memberName(uid)} onclick={() => openProfile(uid)}>
+                      {#if avatarUrl(uid)}<img src={avatarUrl(uid)} alt="" />{:else}{initial(uid)}{/if}
+                    </button>
                   {/each}
                 </span>
               </div>
@@ -542,7 +596,24 @@
                 </div>
                 <div class="comments">
                   {#each taskComments as c (c.id)}
-                    <div class="comment"><span class="c-author">{memberName(c.author_id)}</span> <span class="muted small">{time(c.created_at)}</span><div>{c.body}</div></div>
+                    <div class="comment">
+                      <div class="c-head">
+                        <button class="avatar tiny" title={memberName(c.author_id)} onclick={() => openProfile(c.author_id)}>
+                          {#if avatarUrl(c.author_id)}<img src={avatarUrl(c.author_id)} alt="" />{:else}{initial(c.author_id)}{/if}
+                        </button>
+                        <button class="c-author link" onclick={() => openProfile(c.author_id)}>{memberName(c.author_id)}</button>
+                        <span class="muted small">{time(c.created_at)}</span>
+                      </div>
+                      <div class="c-body">
+                        {#each segments(c.body) as seg}
+                          {#if seg.kind === "mention"}
+                            <button class="tag mention" class:unknown={!seg.known} disabled={!seg.known} onclick={() => openProfile(memberByHandle(seg.value)?.user_id)} title="View profile">@{seg.value}</button>
+                          {:else if seg.kind === "file"}
+                            <button class="tag file" onclick={() => onOpenFile?.(seg.value)} title="Open file">#{seg.value}</button>
+                          {:else}{seg.value}{/if}
+                        {/each}
+                      </div>
+                    </div>
                   {/each}
                   <form class="comment-form" onsubmit={(e) => { e.preventDefault(); void sendTaskComment(t); }}>
                     <input bind:value={taskCommentDraft} placeholder="Comment…" />
@@ -555,8 +626,23 @@
               </div>
             {/if}
           </div>
+        {/snippet}
+
+        {#each openTasks as t (t.id)}
+          {@render taskCard(t)}
         {/each}
-        {#if activeTasks.length === 0}<p class="muted empty">No tasks yet.</p>{/if}
+        {#if openTasks.length === 0}<p class="muted empty">No open tasks.</p>{/if}
+
+        {#if doneTasks.length > 0}
+          <button class="ghost small archived-toggle" onclick={() => (showCompletedTasks = !showCompletedTasks)}>
+            {showCompletedTasks ? "Hide" : "Show"} completed ({doneTasks.length})
+          </button>
+          {#if showCompletedTasks}
+            {#each doneTasks as t (t.id)}
+              {@render taskCard(t)}
+            {/each}
+          {/if}
+        {/if}
 
         {#if archivedTasks.length > 0}
           <button class="ghost small archived-toggle" onclick={() => (showArchived = !showArchived)}>
@@ -587,33 +673,71 @@
           <button class="primary small" type="submit" disabled={newListTitle.trim() === ""}>Add list</button>
         </form>
 
+        {#snippet todoCard(list: TodoList)}
+          <div class="todo-list">
+            <div class="list-head">
+              <h4>{list.title}</h4>
+              <div class="list-actions">
+                <button class="ghost tiny" title="Assign members" onclick={() => (assignOpen = { ...assignOpen, [list.id]: !assignOpen[list.id] })}>People</button>
+                <button class="ghost tiny danger" title="Delete" onclick={() => removeList(list.id)}>×</button>
+              </div>
+            </div>
+            <div class="list-sub">
+              {#if issueLabel(list.issue_id)}<span class="tag issue small" title={issueLabel(list.issue_id)}>#{issues.find((i) => i.id === list.issue_id)?.number}</span>{/if}
+              {#if assigneesOf(list.id).length > 0}
+                <span class="assignee-avatars">
+                  {#each assigneesOf(list.id) as uid (uid)}
+                    <button class="avatar tiny" title={memberName(uid)} onclick={() => openProfile(uid)}>
+                      {#if avatarUrl(uid)}<img src={avatarUrl(uid)} alt="" />{:else}{initial(uid)}{/if}
+                    </button>
+                  {/each}
+                </span>
+              {/if}
+            </div>
+            {#if assignOpen[list.id]}
+              <div class="assign">
+                <span class="muted small">Assignees:</span>
+                {#each members as m (m.user_id)}
+                  <button class="chip toggle" class:on={assigneesOf(list.id).includes(m.user_id)} onclick={() => toggleListAssignee(list, m.user_id)}>
+                    {m.display_name?.trim() || m.username}
+                  </button>
+                {/each}
+              </div>
+            {/if}
+            <ul>
+              {#each itemsOf(list.id) as item (item.id)}
+                <li class:done={item.done}>
+                  <input type="checkbox" checked={item.done} onchange={() => toggleItem(item)} />
+                  <span>{item.body}</span>
+                  <button class="x" onclick={() => removeItem(item.id)} title="Remove">×</button>
+                </li>
+              {/each}
+            </ul>
+            <form class="add-item" onsubmit={(e) => { e.preventDefault(); void addItem(list); }}>
+              <input value={itemDraft[list.id] ?? ""} oninput={(e) => (itemDraft = { ...itemDraft, [list.id]: e.currentTarget.value })} placeholder="Add item…" />
+            </form>
+          </div>
+        {/snippet}
+
         <div class="list-grid">
           {#each activeLists as list (list.id)}
-            <div class="todo-list">
-              <div class="list-head">
-                <h4>{list.title}</h4>
-                <div class="list-actions">
-                  <button class="ghost tiny" title="Archive" onclick={() => archiveList(list, true)}>Archive</button>
-                  <button class="ghost tiny danger" title="Delete" onclick={() => removeList(list.id)}>×</button>
-                </div>
-              </div>
-              {#if issueLabel(list.issue_id)}<span class="tag issue small" title={issueLabel(list.issue_id)}>#{issues.find((i) => i.id === list.issue_id)?.number}</span>{/if}
-              <ul>
-                {#each itemsOf(list.id) as item (item.id)}
-                  <li class:done={item.done}>
-                    <input type="checkbox" checked={item.done} onchange={() => toggleItem(item)} />
-                    <span>{item.body}</span>
-                    <button class="x" onclick={() => removeItem(item.id)} title="Remove">×</button>
-                  </li>
-                {/each}
-              </ul>
-              <form class="add-item" onsubmit={(e) => { e.preventDefault(); void addItem(list); }}>
-                <input value={itemDraft[list.id] ?? ""} oninput={(e) => (itemDraft = { ...itemDraft, [list.id]: e.currentTarget.value })} placeholder="Add item…" />
-              </form>
-            </div>
+            {@render todoCard(list)}
           {/each}
         </div>
         {#if activeLists.length === 0}<p class="muted empty">No to-do lists yet.</p>{/if}
+
+        {#if completedLists.length > 0}
+          <button class="ghost small archived-toggle" onclick={() => (showCompletedTodos = !showCompletedTodos)}>
+            {showCompletedTodos ? "Hide" : "Show"} completed ({completedLists.length})
+          </button>
+          {#if showCompletedTodos}
+            <div class="list-grid">
+              {#each completedLists as list (list.id)}
+                {@render todoCard(list)}
+              {/each}
+            </div>
+          {/if}
+        {/if}
 
         {#if archivedLists.length > 0}
           <button class="ghost small archived-toggle" onclick={() => (showArchivedTodos = !showArchivedTodos)}>
@@ -762,13 +886,26 @@
     flex-shrink: 0;
     width: 30px;
     height: 30px;
+    border: none;
+    padding: 0;
     border-radius: 50%;
     display: grid;
     place-items: center;
+    overflow: hidden;
     background: var(--accent);
     color: #fff;
     font-size: 13px;
     font-weight: 700;
+    cursor: pointer;
+  }
+  .avatar:hover {
+    filter: brightness(1.08);
+  }
+  .avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
   }
   .avatar.tiny {
     width: 20px;
@@ -786,6 +923,19 @@
   .msg-author {
     font-weight: 600;
     font-size: 13px;
+  }
+  .msg-author.link,
+  .c-author.link {
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .msg-author.link:hover,
+  .c-author.link:hover {
+    text-decoration: underline;
+    color: var(--accent);
   }
   .msg-time {
     font-size: 11px;
@@ -806,14 +956,21 @@
     border-radius: 5px;
     padding: 0 4px;
   }
+  .tag.mention,
   .tag.file {
     border: none;
     font: inherit;
+    font-weight: 600;
     cursor: pointer;
+  }
+  .tag.mention:hover:not(:disabled),
+  .tag.file:hover {
+    text-decoration: underline;
   }
   .tag.mention.unknown {
     color: var(--text-muted);
     background: transparent;
+    cursor: default;
   }
 
   /* Tasks */
@@ -884,10 +1041,29 @@
   }
   .comment {
     font-size: 13px;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
+  }
+  .c-head {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 2px;
   }
   .c-author {
     font-weight: 600;
+  }
+  .c-body {
+    margin-left: 27px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .list-sub {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 0;
+    min-height: 20px;
   }
   .small {
     font-size: 12px;

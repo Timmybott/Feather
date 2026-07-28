@@ -4,12 +4,14 @@
   import { fileContentAt } from "../snapshotcontent";
   import {
     anonKey,
+    assignIssueCommit,
     createCommit,
     currentBundle,
     deleteCommit,
     finalizeCommit,
     getCommitManifest,
     listCommits,
+    listIssues,
     serverManifest,
     sessionToken,
     storageAvailable,
@@ -17,6 +19,7 @@
     type CloudCommit,
     type CloudProject,
     type DeployBundle,
+    type Issue,
   } from "../cloud";
   import type { ChangeKind, Diff, Manifest, ProjectConfig } from "../types";
   import FileDiff from "./FileDiff.svelte";
@@ -58,6 +61,10 @@
   let description = $state("");
   let committing = $state(false);
   let error = $state<string | null>(null);
+  // Open issues this project has, and the ones this commit will resolve. A
+  // linked issue closes automatically once the commit is deployed.
+  let openIssues = $state<Issue[]>([]);
+  let selectedIssues = $state<string[]>([]);
 
   // Per-file diff viewer state.
   let openDiff = $state<{
@@ -173,6 +180,11 @@
     try {
       storageOk = await storageAvailable();
       if (!storageOk) return;
+      try {
+        openIssues = (await listIssues(project.id)).filter((i) => i.status === "open");
+      } catch {
+        openIssues = []; // issue linkage is a nicety — never block the panel
+      }
       const base = await serverManifest(project.id);
       serverBase = base;
       const [d, b] = await Promise.all([projectDiff(config, base), currentBundle(project.id)]);
@@ -220,6 +232,16 @@
         created.id,
       );
       await finalizeCommit(created.id, up.files, up.manifest);
+      // Pin any selected open issues to this commit — they close automatically
+      // once this commit is deployed (release_bundle → close_deployed_issues).
+      for (const issueId of selectedIssues) {
+        try {
+          await assignIssueCommit(issueId, created.id);
+        } catch (e) {
+          console.error("could not link issue to commit:", e);
+        }
+      }
+      selectedIssues = [];
       message = "";
       description = "";
       await load();
@@ -405,6 +427,27 @@
         disabled={committing}
       />
       <MarkdownEditor bind:value={description} rows={4} placeholder="Description (optional) — what changed and why…" />
+      {#if openIssues.length > 0}
+        <div class="issue-link">
+          <span class="il-label muted">Closes issues</span>
+          <div class="il-chips">
+            {#each openIssues as i (i.id)}
+              <label class="il-chip" class:on={selectedIssues.includes(i.id)}>
+                <input
+                  type="checkbox"
+                  checked={selectedIssues.includes(i.id)}
+                  onchange={(e) =>
+                    (selectedIssues = e.currentTarget.checked
+                      ? [...selectedIssues, i.id]
+                      : selectedIssues.filter((x) => x !== i.id))}
+                />
+                #{i.number} {i.title}
+              </label>
+            {/each}
+          </div>
+          <p class="hint muted">Selected issues close automatically when this commit is deployed.</p>
+        </div>
+      {/if}
       <button type="submit" class="primary self-end" disabled={committing || message.trim() === ""}>
         {committing ? "Committing…" : "Commit"}
       </button>
@@ -608,6 +651,49 @@
 
   .self-end {
     align-self: flex-end;
+  }
+
+  .issue-link {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .il-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .il-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .il-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 3px 10px 3px 8px;
+    font-size: 12px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .il-chip.on {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .il-chip input {
+    margin: 0;
   }
 
   .hint {

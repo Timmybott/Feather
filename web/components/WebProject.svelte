@@ -34,6 +34,8 @@
 
   type Tab = "overview" | "issues" | "planning" | "files" | "history" | "console" | "settings";
   let tab = $state<Tab>("overview");
+  // A #file mention from Planning jumps the Files tab straight to this path.
+  let openFilePath = $state<string | null>(null);
 
   let project = $state<CloudProject | null>(null);
   let teamName = $state("");
@@ -258,7 +260,7 @@
            members-only — the feather-panel proxy rejects non-members. Only
            show these tabs to a signed-in member of the owning team. -->
       {#if hasServer && isMember}
-        <button class:active={tab === "files"} onclick={() => (tab = "files")}>Files</button>
+        <button class:active={tab === "files"} onclick={() => { openFilePath = null; tab = "files"; }}>Files</button>
         <button class:active={tab === "console"} onclick={() => (tab = "console")}>Console</button>
       {/if}
       {#if isMember}
@@ -394,10 +396,11 @@
         currentUserId={auth.user?.id ?? null}
         {isMember}
         {isAdmin}
-        onOpenFile={() => (tab = "files")}
+        onOpenFile={(path) => { openFilePath = path; tab = "files"; }}
+        onOpenProfile={(id) => navigate(`/user/${id}`)}
       />
     {:else if tab === "files" && hasServer && isMember}
-      <FileBrowser panelId={project.panel_id!} identifier={project.server_identifier!} canWrite={isMember} />
+      <FileBrowser panelId={project.panel_id!} identifier={project.server_identifier!} canWrite={isMember} openPath={openFilePath} />
     {:else if tab === "console" && hasServer && isMember}
       <WebConsole panelId={project.panel_id!} identifier={project.server_identifier!} serverName={project.name} onClose={() => (tab = "overview")} />
     {:else if tab === "history"}

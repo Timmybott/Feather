@@ -182,13 +182,25 @@ comments and issue links) and to-do lists — plus a `notifications` table, all
 tasks/to-do lists), and **realtime** on the chat-messages and notifications
 tables (so chats update live). Also idempotent.
 
-Last, run [`supabase/0024_web_auto_publish.sql`](../supabase/0024_web_auto_publish.sql)
+Next, run [`supabase/0024_web_auto_publish.sql`](../supabase/0024_web_auto_publish.sql)
 in a **new query**. It adds the `web_auto_publish` toggle used to re-publish a
 web deployment automatically after each deploy. Also idempotent.
 
-> **v3.4 adds two migrations.** Run `0023` and `0024` (above) once, after
-> `0001`–`0022`. `0023` turns on realtime for the planning chats; if your project
-> has realtime disabled, chats still work but update on refresh instead of live.
+Then run [`supabase/0025_planning_assignees.sql`](../supabase/0025_planning_assignees.sql)
+in a **new query**. It adds a `planning_todo_list_assignees` table (to-do lists
+can be assigned to members, like tasks) and database **triggers** that create a
+notification for a task's or a to-do list's assignees whenever a comment is
+posted or the item changes. Also idempotent.
+
+Last, run [`supabase/0026_issue_autoclose.sql`](../supabase/0026_issue_autoclose.sql)
+in a **new query**. It adds `close_deployed_issues()` — called after a deploy to
+close every open issue pinned (at commit time) to a commit in the shipped
+bundle. Also idempotent.
+
+> **v3.4 adds four migrations.** Run `0023`, `0024`, `0025` and `0026` (above)
+> once, after `0001`–`0022`. `0023` turns on realtime for the planning chats; if
+> your project has realtime disabled, chats still work but update on refresh
+> instead of live.
 
 ## 3b. Deploy the storage function (cloud commits)
 
